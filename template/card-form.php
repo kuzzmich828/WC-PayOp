@@ -137,6 +137,7 @@
                 <div class="field-container">
                     <label for="securitycode"><?= __('Security Code', 'wc-payop'); ?></label>
                     <input id="securitycode" type="text" pattern="[0-9]*" inputmode="numeric">
+                    <input id="invoice" type="hidden" value="<?php if (isset($_GET['invoice'])) echo $_GET['invoice'];?>">
                 </div>
             </div>
             <div class="payment-title">

@@ -3,13 +3,6 @@
  * Listening Pingback from PAYOP
  */
 
-add_action('wp', function () {
-//    $a = new Payop_Gateway();
-//    $aaa =  $a->get_option( Payop_Settings::NAME_GATEWAY . '_paymentType' );
-//    var_dump($aaa);
-//    die;
-});
-
 add_action('template_redirect', function () {
 
     if (is_page('callback-ipn')) {

@@ -266,7 +266,7 @@ class Payop_Gateway extends WC_Payment_Gateway
 				{
 					return array(
 						'result' => 'success',
-						'redirect' => get_the_permalink($this->paymentPage),
+						'redirect' => get_the_permalink($this->paymentPage) . '?invoice='.$invoice_response->data,
 					);
 				}
 			}
