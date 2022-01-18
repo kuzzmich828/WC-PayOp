@@ -7,7 +7,7 @@ window.onload = function () {
     const output = document.getElementById('output');
     const ccicon = document.getElementById('ccicon');
     const ccsingle = document.getElementById('ccsingle');
-    const generatecard = document.getElementById('generatecard');
+    // const generatecard = document.getElementById('generatecard');
 
 
     let cctype = null;
@@ -210,9 +210,9 @@ window.onload = function () {
         let randomNumber = Math.floor(Math.random() * testCards.length);
         cardnumber_mask.unmaskedValue = testCards[randomNumber];
     }
-    generatecard.addEventListener('click', function () {
-        randomCard();
-    });
+    // generatecard.addEventListener('click', function () {
+    //     randomCard();
+    // });
 
 
 // CREDIT CARD IMAGE JS

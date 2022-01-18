@@ -1,49 +1,59 @@
 <?php
 
 
-class Payop_ServerToServer
+class Payop_ServerToServer extends Abstract_Payop_Helper
 {
 
 	const CREATE_CARD_TOKEN_URL = 'v1/payment-tools/card-token/create';
+	const CREATE_CHECKOUT_TRANSACTION_URL = 'v1/checkout/create';
 
-	private int $server;
+//	private string $server;
 
 	public function __construct($server)
 	{
 		$this->server = $server;
+
 	}
 
-	public function createBankCardToken(int $server, array $card, string $invoiceID)
+	public function createBankCardToken(string $invoiceID, array $card)
 	{
 		$card ['invoiceIdentifier'] = $invoiceID;
-		$curl = curl_init();
-		curl_setopt_array($curl, array(
-			CURLOPT_URL => Payop_Settings::SERVERS_URL[$this->server] . self::CREATE_CARD_TOKEN_URL,
-			CURLOPT_RETURNTRANSFER => true,
-			CURLOPT_ENCODING => "",
-			CURLOPT_MAXREDIRS => 10,
-			CURLOPT_TIMEOUT => 30,
-			CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-			CURLOPT_CUSTOMREQUEST => "POST",
-			CURLOPT_POSTFIELDS => json_encode($card),
-			CURLOPT_HTTPHEADER => array(
-				"cache-control: no-cache",
-				"content-type: application/json",
-			),
-		));
+		$response = $this->curlPOST(self::CREATE_CARD_TOKEN_URL, $card);
 
-		$response = curl_exec($curl);
-		$err = curl_error($curl);
-
-		curl_close($curl);
-
-		if ($err) {
-			echo "cURL Error #:" . $err;
-		} else {
-			return json_decode($response);
+		if (isset($response['message'])) {
+			return $response['message'];
 		}
 
-		return json_decode($response);
+		if (isset($response['data'])) {
+			return $response['data'];
+		}
+
+		return false;
+	}
+
+	public function createCheckoutTransaction(string $invoiceID, array $customer, string $checkStatusUrl, string $payCurrency = '', int $paymentMethod = 0, string $cardToken = '')
+	{
+
+		$params = [
+			'invoiceIdentifier' => $invoiceID,
+			'customer' => $customer,
+			'checkStatusUrl' => $checkStatusUrl,
+		];
+
+		if ($cardToken) {
+			$params['cardToken'] = $cardToken;
+		}
+
+		if ($paymentMethod) {
+			$params['paymentMethod'] = $paymentMethod;
+		}
+
+		if ($payCurrency) {
+			$params['payCurrency'] = $payCurrency;
+		}
+
+		return $this->curlPOST(self::CREATE_CHECKOUT_TRANSACTION_URL, $params);
+
 	}
 
 }

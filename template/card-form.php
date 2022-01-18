@@ -116,7 +116,8 @@
                 </div>
             </div>
         </div>
-        <form action="" method="post">
+
+        <form action="" data-url="credit_card_form" method="post" id="credit_card_form">
             <div class="form-container">
                 <div class="field-container">
                     <label for="name"><?= __('Name', 'wc-payop'); ?></label>
@@ -124,7 +125,7 @@
                 </div>
                 <div class="field-container">
                     <label for="cardnumber"><?= __('Card Number', 'wc-payop'); ?></label>
-                    <input id="cardnumber" type="text" pattern="[0-9]*" inputmode="numeric">
+                    <input id="cardnumber" type="text" >
                     <svg id="ccicon" class="ccicon" width="750" height="471" viewBox="0 0 750 471" version="1.1"
                          xmlns="http://www.w3.org/2000/svg"
                          xmlns:xlink="http://www.w3.org/1999/xlink">
@@ -132,17 +133,85 @@
                 </div>
                 <div class="field-container">
                     <label for="expirationdate"><?= __('Expiration (mm/yy)', 'wc-payop'); ?></label>
-                    <input id="expirationdate" type="text" pattern="[0-9]*" inputmode="numeric">
+                    <input id="expirationdate" type="text" inputmode="numeric">
                 </div>
                 <div class="field-container">
                     <label for="securitycode"><?= __('Security Code', 'wc-payop'); ?></label>
                     <input id="securitycode" type="text" pattern="[0-9]*" inputmode="numeric">
-                    <input id="invoice" type="hidden" value="<?php if (isset($_GET['invoice'])) echo $_GET['invoice'];?>">
+                    <input id="invoice" type="hidden"
+                           value="<?php if (isset($_GET['invoice'])) echo $_GET['invoice']; ?>">
+                    <?php wp_nonce_field('credit_card_form_action','credit_card_form'); ?>
+                    <input id="seon_session" type="hidden" value="">
+
                 </div>
             </div>
             <div class="payment-title">
-                <button type="submit"><?= __('Submit', 'wc-payop'); ?></button>
+                <button type="submit" id="submit-pay"><?= __('Submit', 'wc-payop'); ?></button>
             </div>
         </form>
     </div>
+
+    <script src="https://cdn.seon.io/js/v4/agent.js"></script>
+
+    <script>
+        seon.config({
+            session_id: '{session_id}',
+            audio_fingerprint: true,
+            canvas_fingerprint: true,
+            webgl_fingerprint: true,
+            onSuccess: function(message) {
+                console.log("success", message);
+            },
+            onError: function(message) {
+                console.log("error", message);
+            }
+        });
+
+        seon.getBase64Session(function(data) {
+            if (data) {
+                console.log("Session payload", data);
+                jQuery('#seon_session').val(data);
+            } else {
+                console.log("Failed to retrieve session data.");
+            }
+        });
+
+    </script>
+
+    <script>
+        jQuery("#credit_card_form").submit(function (event) {
+            event.preventDefault();
+
+            var action = jQuery(this).attr('data-url');
+            var name = jQuery(this).find("#name").val();
+            var seon_session = jQuery(this).find("#seon_session").val();
+            var cardnumber = jQuery(this).find("#cardnumber").val();
+            var expirationdate = jQuery(this).find("#expirationdate").val();
+            var securitycode = jQuery(this).find("#securitycode").val();
+            var invoice = jQuery(this).find("#invoice").val();
+            var credit_card_form = jQuery(this).find("#credit_card_form").val();
+
+            jQuery.ajax({
+                async: true,
+                url: payop_ajax.url,
+                type: "POST",
+                data: {
+                    action: action,
+                    credit_card_form: credit_card_form,
+                    seon_session: seon_session,
+                    name: name,
+                    cardnumber: cardnumber,
+                    expirationdate: expirationdate,
+                    securitycode: securitycode,
+                    invoice: invoice
+                }
+            }).done(function (response) {
+                console.log(response);
+            });
+
+
+        });
+
+
+    </script>
 <?php get_footer(); ?>
