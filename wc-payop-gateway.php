@@ -103,4 +103,26 @@ function callback_credit_card_form()
 
 	wp_die();
 }
+add_filter('woocommerce_order_button_html', 'inactive_order_button_html' );
+function inactive_order_button_html( $button ) {
+	// HERE define your targeted shipping class
+	$targeted_shipping_class = 332;
+	$found = false;
+
+	// Loop through cart items
+	foreach( WC()->cart->get_cart() as $cart_item ) {
+		if( $cart_item['data']->get_shipping_class_id() == $targeted_shipping_class ) {
+			$found = true; // The targeted shipping class is found
+			break; // We stop the loop
+		}
+	}
+
+	// If found we replace the button by an inactive greyed one
+	if( $found ) {
+		$style = 'style="background:Silver !important; color:white !important; cursor: not-allowed !important;"';
+		$button_text = apply_filters( 'woocommerce_order_button_text', __( 'sdsfhd hdsfhdfh', 'woocommerce' ) );
+		$button = '<a class="button" '.$style.'>' . $button_text . '</a>';
+	}
+	return $button;
+}
 
