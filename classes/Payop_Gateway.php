@@ -53,6 +53,8 @@ class Payop_Gateway extends WC_Payment_Gateway
 		// Method with all the options fields
 		$this->init_form_fields();
 
+		add_action('woocommerce_receipt_' . Payop_Settings::NAME_GATEWAY, [$this, 'receipt_page'], 999, 2);
+
 		// This action hook saves the settings
 		add_action('woocommerce_update_options_payment_gateways_' . $this->id, array($this, 'process_admin_options'));
 
@@ -82,6 +84,7 @@ class Payop_Gateway extends WC_Payment_Gateway
 		}
 
 		$this->form_fields = array(
+
 			Payop_Settings::ID_GATEWAY . 'enabled' => array(
 				'title' => __('Enable/Disable', 'wc-payop'),
 				'label' => __('Enable PayOp Gateway', 'wc-payop'),
@@ -183,100 +186,69 @@ class Payop_Gateway extends WC_Payment_Gateway
 
 		$order = new WC_Order($order_id);
 
-		$Payop_HostedPage = new Payop_HostedPage($this->secret_key, $this->server);
-
-		$invoice_parameters = [
-			'id' => (string)$order->get_id(),
-			'amount' => (string)$order->get_total(),
-			'currency' => (string)$order->get_currency(),
-		];
-
-		//  Generate Signature for Invoice
-		$signature = $Payop_HostedPage->generateSignature($invoice_parameters);
-
-		//  Generate Signature for Invoice
-		$order_items_invoice = [];
-		$items = $order->get_items();
-
-		foreach ($items as $item) {
-			$order_items_invoice [] = [
-				'id' => $item->get_data()['id'],
-				'name' => $item->get_data()['name'],
-				'price' => $item->get_data()['total'],
-			];
-		}
-
-
-		// create array for request invoice
-		$request_order = [
-
-			'publicKey' => $this->public_key,
-			'order' => [
-				'id' => (string)$order->get_id(),
-				'amount' => (string)$order->get_total(),
-				'currency' => $order->get_currency(),
-				'items' => $order_items_invoice,
-				'description' => '',
-			],
-
-			"signature" => $signature,
-
-			"payer" => [
-				"email" => (string)$order->get_billing_email(),
-				"phone" => (string)$order->get_billing_phone(),
-				"name" => (string)$order->get_billing_first_name(),
-				"extraFields" => [],
-			],
-
-			"paymentMethod" => $this->paymentMethod,
-			"language" => $this->language,
-			"resultUrl" => $this->resultUrl,
-			"failPath" => $this->failPath,
-
-		];
-
-		// create invoice by API PayOp
-		$invoice_response = $Payop_HostedPage->createInvoice($request_order);
-
-		if (!isset($invoice_response->status) || $invoice_response->status != 1) {
-			wc_add_notice(json_encode($invoice_response->message), 'error');
-			return;
-		}
-
-
 		global $woocommerce;
-		if ($invoice_response->data && $invoice_response->status == 1) {
 
-			// Mark as on-hold (we're awaiting the cheque)
-//            $order->update_status('pending-payment', __('Awaiting cheque payment', 'woocommerce'));
+		$order_key = $order->get_order_key();
 
-			// Remove cart
+		// Mark as on-hold (we're awaiting the cheque)
+        $order->update_status('pending-payment', __('Awaiting cheque payment', 'woocommerce'));
+
+		// Remove cart
 //            $woocommerce->cart->empty_cart();
 
-			switch ($this->paymentType) {
-				case Payop_Settings::PAYMENT_TYPE_HOSTED_PAGE:
-				{
-					return array(
-						'result' => 'success',
-						'redirect' => str_replace('{{locale}}', $this->language, $Payop_HostedPage->getProcessingUrl()) . $invoice_response->data,
-					);
-				}
-
-				case Payop_Settings::PAYMENT_TYPE_SERVER_SERVER:
-				{
-					return array(
-						'result' => 'success',
-						'redirect' => get_the_permalink($this->paymentPage) . '?invoice='.$invoice_response->data,
-					);
-				}
+		switch ($this->paymentType) {
+			case Payop_Settings::PAYMENT_TYPE_HOSTED_PAGE:
+			{
+				return array(
+					'result' => 'success',
+					'redirect' => add_query_arg('order', $order->get_id(), add_query_arg('key', $order_key, $order->get_checkout_order_received_url())),
+				);
 			}
 
-
+			case Payop_Settings::PAYMENT_TYPE_SERVER_SERVER:
+			{
+				return array(
+					'result' => 'success',
+					'redirect' => get_the_permalink($this->paymentPage) . '?invoice=',
+				);
+			}
 		}
 
 		wc_add_notice("Unknown Error", 'error');
 
 		return;
+
+	}
+
+	public function receipt_page($order_id)
+	{
+
+		$order = new WC_Order($order_id);
+
+		$PayopHostedPage = new Payop_HostedPage($this->secret_key, $this->public_key, $this->server);
+
+		// create invoice by API PayOp
+		$invoice = $PayopHostedPage->createInvoice($order, $this->paymentMethod, $this->language, $this->resultUrl, $this->failPath);
+
+
+		if (!isset($invoice->status) || $invoice->status != 1) {
+			wc_add_notice(json_encode($invoice->message), 'error');
+			echo '<p>' . json_encode($invoice->message) . '</p>';
+			return;
+		}
+
+		if ($invoice->data && $invoice->status == 1) {
+
+			$page = str_replace('{{locale}}', $this->language, $PayopHostedPage->getProcessingUrl()) . $invoice->data;
+
+			echo '<p>' . __('Thank you for your order, please click the button below to pay', 'payop-woocommerce') . '</p>';
+			echo '<form action="' . esc_url($page) . '" method="GET" id="payop_payment_form">' . "\n" .
+				 '<input type="submit" class="button alt" id="submit_payop_payment_form" value="' . __('Pay', 'payop-woocommerce') . '" /> 
+				    <a class="button cancel" href="' . $order->get_cancel_order_url() . '">' . __('Refuse payment & return to cart', 'payop-woocommerce') . '</a>' . "\n" .
+				 '</form>';
+
+		}
+
 
 	}
 
