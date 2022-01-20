@@ -73,7 +73,7 @@ function callback_check_invoice_status()
 
 add_action('wp_ajax_credit_card_form', 'callback_credit_card_form');
 add_action('wp_ajax_nopriv_credit_card_form', 'callback_credit_card_form');
-function callback_credit_card_form()
+function callback_credit_card_form(){
 
 	if (!isset($_POST['credit_card_form'])
 		|| !wp_verify_nonce($_POST['credit_card_form'], 'credit_card_form_action')
