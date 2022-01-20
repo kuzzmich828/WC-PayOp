@@ -35,46 +35,56 @@ function wc_payop_init_gateway_class()
 	require_once(__DIR__ . '/classes/Payop_Gateway.php');
 }
 
-add_filter('page_template', 'wc_payop_page_template');
-function wc_payop_page_template($page_template)
+add_action('wp_enqueue_scripts', 'action_function_name_7714');
+function action_function_name_7714()
 {
-	if (is_page('payment-credit-card')) {
-		$page_template = dirname(__FILE__) . '/template/card-form.php';
+	if (is_page('checkout')) {
 		wp_enqueue_script('credit-card-script', plugin_dir_url(__FILE__) . '/assets/js/credit-card.js', []);
 		wp_enqueue_script('imask-script', '//cdnjs.cloudflare.com/ajax/libs/imask/3.4.0/imask.min.js', []);
 		wp_enqueue_style('credit-card-style', plugin_dir_url(__FILE__) . '/assets/css/credit-card.css', []);
 
-
 		wp_localize_script('credit-card-script', 'payop_ajax',
 			array(
 				'url' => admin_url('admin-ajax.php'),
+				'check_invoice_status' => 'check_invoice_status',
 			)
 		);
-
-
 	}
-	return $page_template;
 }
 
+/*add_filter('page_template', 'wc_payop_page_template');
+function wc_payop_page_template($page_template)
+{
+	if (is_page('payment-credit-card') || is_page('checkout')) {
+		$page_template = dirname(__FILE__) . '/template/card-form.php';
+	}
+	return $page_template;
+}*/
+
+add_action('wp_ajax_check_invoice_status', 'callback_check_invoice_status');
+add_action('wp_ajax_nopriv_check_invoice_status', 'callback_check_invoice_status');
+function callback_check_invoice_status()
+{
+	$serverServer = new Payop_ServerToServer('Stage');
+	$response = $serverServer->checkInvoiceStatus($_POST['invoice']);
+	wp_send_json($response, 200);
+	wp_die();
+}
 
 add_action('wp_ajax_credit_card_form', 'callback_credit_card_form');
 add_action('wp_ajax_nopriv_credit_card_form', 'callback_credit_card_form');
 function callback_credit_card_form()
-{
-	ini_set('display_errors', 1);
-	ini_set('display_startup_errors', 1);
-	error_reporting(E_ALL);
 
 	if (!isset($_POST['credit_card_form'])
 		|| !wp_verify_nonce($_POST['credit_card_form'], 'credit_card_form_action')
 	) {
-		print 'Sorry, your nonce did not verify.';
-		exit;
+		wp_send_json(['message' => 'Sorry, your nonce did not verify.'], 400);
+		wp_die();
 	}
 
+	$serverServer = new Payop_ServerToServer('Stage');
 
-
-	$payop = new Payop_ServerToServer('Stage');
+	$order_id = $_POST['order_id'];
 
 	$card = [
 		'holderName' => $_POST['name'],
@@ -89,40 +99,36 @@ function callback_credit_card_form()
 		'ip' => '127.0.0.1',
 	];
 
-	if (isset($_POST['seon_session']) && $_POST['seon_session']){
+	if (isset($_POST['seon_session']) && $_POST['seon_session']) {
 		$customer['seon_session'] = $_POST['seon_session'];
 	}
 
-	$bankCardToken = $payop->createBankCardToken($_POST['invoice'], $card);
+	$bankCardToken = $serverServer->createBankCardToken($_POST['invoice'], $card);
 
-	$checkoutTransaction = $payop->createCheckoutTransaction($_POST['invoice'], $customer, 'https://the-web.space/', false, false, $bankCardToken['token']);
+	/* TODO: Check  bankCardToken on Errors */
+	if (!isset($bankCardToken['token'])) {
+		wp_send_json($bankCardToken, 400);
+	}
 
-	print_r($bankCardToken);
+	$checkoutTransaction = $serverServer->createCheckoutTransaction($_POST['invoice'], $customer, 'https://the-web.space/', false, false, $bankCardToken['token']);
 
-	print_r($checkoutTransaction);
+	$statusInvoice = $serverServer->checkInvoiceStatus($_POST['invoice']);
+
+	$PayopOrder = new Payop_Order($order_id);
+	$PayopOrder->updateStatusOrderAfterTransaction($statusInvoice);
+
+	/* TODO: Check  checkoutTransaction on Errors */
+	if (isset($checkoutTransaction['data']) && isset($checkoutTransaction['status']) && $checkoutTransaction['status']) {
+		wp_send_json($checkoutTransaction['data'], 200);
+	} elseif (isset($checkoutTransaction['message'])) {
+		$response = [];
+		if (isset($checkoutTransaction['message']))
+			$response = $checkoutTransaction['message'];
+		else
+			$response = $checkoutTransaction;
+
+		wp_send_json($response, 400);
+	}
 
 	wp_die();
 }
-add_filter('woocommerce_order_button_html', 'inactive_order_button_html' );
-function inactive_order_button_html( $button ) {
-	// HERE define your targeted shipping class
-	$targeted_shipping_class = 332;
-	$found = false;
-
-	// Loop through cart items
-	foreach( WC()->cart->get_cart() as $cart_item ) {
-		if( $cart_item['data']->get_shipping_class_id() == $targeted_shipping_class ) {
-			$found = true; // The targeted shipping class is found
-			break; // We stop the loop
-		}
-	}
-
-	// If found we replace the button by an inactive greyed one
-	if( $found ) {
-		$style = 'style="background:Silver !important; color:white !important; cursor: not-allowed !important;"';
-		$button_text = apply_filters( 'woocommerce_order_button_text', __( 'sdsfhd hdsfhdfh', 'woocommerce' ) );
-		$button = '<a class="button" '.$style.'>' . $button_text . '</a>';
-	}
-	return $button;
-}
-

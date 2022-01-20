@@ -28,7 +28,6 @@ class Payop_HostedPage extends Abstract_Payop_Helper
 
 	public function createInvoice($order, $paymentMethod, $language, $resultUrl, $failPath)
 	{
-
 		$order_items_invoice = [];
 		$items = $order->get_items();
 
@@ -70,35 +69,7 @@ class Payop_HostedPage extends Abstract_Payop_Helper
 
 		];
 
-
-		$curl = curl_init();
-		curl_setopt_array($curl, array(
-			CURLOPT_URL => Payop_Settings::SERVERS_URL[$this->server] . self::CREATE_INVOICE_URL,
-			CURLOPT_RETURNTRANSFER => true,
-			CURLOPT_ENCODING => "",
-			CURLOPT_MAXREDIRS => 10,
-			CURLOPT_TIMEOUT => 30,
-			CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-			CURLOPT_CUSTOMREQUEST => "POST",
-			CURLOPT_POSTFIELDS => json_encode($request_order),
-			CURLOPT_HTTPHEADER => array(
-				"cache-control: no-cache",
-				"content-type: application/json",
-			),
-		));
-
-		$response = curl_exec($curl);
-		$err = curl_error($curl);
-
-		curl_close($curl);
-
-		if ($err) {
-			echo "cURL Error #:" . $err;
-		} else {
-			return json_decode($response);
-		}
-
-		return json_decode($response);
+		return $this->curlPOST(self::CREATE_INVOICE_URL, $request_order);
 
 	}
 

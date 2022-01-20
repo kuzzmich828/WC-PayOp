@@ -17,6 +17,47 @@ class Payop_Order
 		return wc_get_order($uuid);
 	}
 
+	public function updateStatusOrderAfterTransaction($invoiceStatus)
+	{
+		$wc_status = false;
+		$wc_note = false;
+
+		if (!isset($invoiceStatus['data']['status']))
+			return false;
+
+		switch ($invoiceStatus['data']['status']) {
+			// Invoice success
+			case 'success':
+				$wc_status = 'completed';
+				break;
+			// Invoice pending
+			case 'pending':
+				$wc_status = 'pending';
+				break;
+			// Invoice failed
+			case 'fail':
+				$wc_status = 'failed';
+				$wc_note = isset($invoiceStatus['data']['message']) ? $invoiceStatus['data']['message'] : false;
+				break;
+		}
+
+		if (!$wc_status || !$this->order) {
+			return false;
+		}
+
+
+
+		if ($this->order->get_status() != $wc_status) {
+			$this->order->update_status($wc_status);
+
+			if ($wc_note) {
+				$this->order->add_order_note($wc_note);
+			}
+
+			return true;
+		}
+	}
+
 	public function updateStatusOrder($invoice, $transaction)
 	{
 

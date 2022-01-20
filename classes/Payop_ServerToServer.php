@@ -6,8 +6,7 @@ class Payop_ServerToServer extends Abstract_Payop_Helper
 
 	const CREATE_CARD_TOKEN_URL = 'v1/payment-tools/card-token/create';
 	const CREATE_CHECKOUT_TRANSACTION_URL = 'v1/checkout/create';
-
-//	private string $server;
+	const CHECK_INVOICE_STATUS_URL = 'v1/checkout/check-invoice-status/';
 
 	public function __construct($server)
 	{
@@ -28,7 +27,12 @@ class Payop_ServerToServer extends Abstract_Payop_Helper
 			return $response['data'];
 		}
 
-		return false;
+		return $response;
+	}
+
+	public function checkInvoiceStatus(string $invoiceID)
+	{
+		return $this->curlGET(self::CHECK_INVOICE_STATUS_URL . $invoiceID);
 	}
 
 	public function createCheckoutTransaction(string $invoiceID, array $customer, string $checkStatusUrl, string $payCurrency = '', int $paymentMethod = 0, string $cardToken = '')

@@ -185,6 +185,9 @@ class Payop_Gateway extends WC_Payment_Gateway
 	 */
 	public function process_payment($order_id)
 	{
+		ini_set('display_errors', 1);
+		ini_set('display_startup_errors', 1);
+		error_reporting(E_ALL);
 
 		$order = new WC_Order($order_id);
 
@@ -197,7 +200,8 @@ class Payop_Gateway extends WC_Payment_Gateway
 		// create invoice by API PayOp
 		$invoice = $PayopHostedPage->createInvoice($order, $this->paymentMethod, $this->language, $this->resultUrl, $this->failPath);
 
-		if (!isset($invoice->status) || $invoice->status != 1) {
+
+		if ((!$invoice || !isset($invoice->status) || $invoice->status != 1) && isset($invoice->message)) {
 			wc_add_notice(json_encode($invoice->message), 'error');
 			return false;
 		}
@@ -208,29 +212,13 @@ class Payop_Gateway extends WC_Payment_Gateway
 		// Remove cart
 		$woocommerce->cart->empty_cart();
 
-		if (isset($invoice->data) && $invoice->data && $invoice->status == 1) {
-			$this->URRRLL = $invoice->data;
-			switch ($this->paymentType) {
-
-
-				case Payop_Settings::PAYMENT_TYPE_HOSTED_PAGE:
-				{
-					return array(
-						'result' => 'success',
-						'redirect' => add_query_arg('invoice', $invoice->data, $this->get_return_url($order))
-
-					);
-				}
-
-				case Payop_Settings::PAYMENT_TYPE_SERVER_SERVER:
-				{
-					return array(
-						'result' => 'success',
-						'redirect' => get_the_permalink($this->paymentPage) . '?invoice=',
-					);
-				}
-
-			}
+		if (isset($invoice['data']) && $invoice['data'] && $invoice['status'] == 1) {
+			$order->add_meta_data('invoice', $invoice['data']);
+			$order->save_meta_data();
+			return array(
+				'result' => 'success',
+				'redirect' => add_query_arg('invoice', $invoice['data'], $this->get_return_url($order)),
+			);
 		}
 
 
@@ -247,16 +235,29 @@ class Payop_Gateway extends WC_Payment_Gateway
 
 		$PayopHostedPage = new Payop_HostedPage($this->secret_key, $this->public_key, $this->server);
 
-		$invoice = $_GET['invoice'];
+		$invoice = $order->get_meta('invoice');
 
-		echo '<p>' . __('Thank you for your order, please click the button below to pay', 'payop-woocommerce') . '</p>';
-		echo '<form action="' . str_replace('{{locale}}', $this->language, $PayopHostedPage->getProcessingUrl()) . $invoice . '" method="GET" id="payop_payment_form">' . "\n" .
-			'<input type="submit" class="button" id="submit_payop_payment_form" value="' . __('Pay', 'payop-woocommerce') . '" />
+		switch ($this->paymentType) {
+
+			case Payop_Settings::PAYMENT_TYPE_SERVER_SERVER:
+			{
+				include_once __DIR__ . '/../template/card-form.php';
+				break;
+			}
+
+			case Payop_Settings::PAYMENT_TYPE_HOSTED_PAGE:
+			{
+				echo '<p>' . __('Thank you for your order, please click the button below to pay', 'payop-woocommerce') . '</p>';
+				echo '<form action="' . str_replace('{{locale}}', $this->language, $PayopHostedPage->getProcessingUrl()) . $invoice . '" method="GET" id="payop_payment_form">' . "\n" .
+					'<input type="submit" class="button" id="submit_payop_payment_form" value="' . __('Pay', 'payop-woocommerce') . '" />
 			           <a class="button cancel" href="' . $order->get_cancel_order_url() . '">' . __('Refuse payment & return to cart', 'payop-woocommerce') . '</a>' . "\n" .
-			'</form>';
+					'</form>';
+				break;
+			}
 
-
+		}
 	}
+
 
 	/*
 	 * In case you need a webhook, like PayPal IPN etc
