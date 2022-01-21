@@ -211,7 +211,7 @@ class Payop_Gateway extends WC_Payment_Gateway
 		$woocommerce->cart->empty_cart();
 
 		if (isset($invoice['data']) && $invoice['data'] && $invoice['status'] == 1) {
-			$order->add_meta_data('invoice', $invoice['data']);
+			$order->add_meta_data('invoice', $invoice['data'], true);
 			$order->save_meta_data();
 			return array(
 				'result' => 'success',
