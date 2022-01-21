@@ -189,6 +189,7 @@ class Payop_Gateway extends WC_Payment_Gateway
 	 */
 	public function process_payment($order_id)
 	{
+
 		global $woocommerce;
 
 		$order = new WC_Order($order_id);

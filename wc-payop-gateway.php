@@ -115,9 +115,11 @@ function callback_credit_card_form()
 
 	$bankCardToken = $serverServer->createBankCardToken($_POST['invoice'], $card);
 
+//	var_dump($bankCardToken);
 	/* TODO: Check  bankCardToken on Errors */
-	if (!isset($bankCardToken['token']) && isset($bankCardToken['message'])) {
-		wp_send_json($bankCardToken['message'], 400);
+	if (!isset($bankCardToken['token'])) {
+		wp_send_json(($bankCardToken), 400);
+		wp_die();
 	}
 	/* Create checkoutTransaction */
 	$checkoutTransaction = $serverServer->createCheckoutTransaction($_POST['invoice'], $customer, '/thankyou', false, false, $bankCardToken['token']);
