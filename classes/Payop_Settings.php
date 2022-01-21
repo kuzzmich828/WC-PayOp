@@ -1,6 +1,6 @@
 <?php
 
-final class Payop_Settings
+final class Payop_Settings extends Abstract_Payop_Helper
 {
 
 	const STAGE_URL = 'https://app.stage.payop.com/';
@@ -36,6 +36,7 @@ final class Payop_Settings
 			CURLOPT_TIMEOUT => 30,
 			CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
 			CURLOPT_CUSTOMREQUEST => "GET",
+			CURLOPT_POST => false,
 			CURLOPT_HTTPHEADER => array(
 				"authorization: Bearer $jwtToken",
 				"cache-control: no-cache",
@@ -48,17 +49,13 @@ final class Payop_Settings
 		curl_close($curl);
 
 		if ($err) {
-			return 'Server Internal Error';
+			return 'Server Internal Error: ' . $err;
 		} else {
-			$methods = [];
-			$response_obj = json_decode($response);
-			if (isset($response_obj->message))
-				return (string) $response_obj->message;
+			$response_obj = json_decode($response, true);
+			if (isset($response_obj['message']))
+				return (string) $response_obj['message'];
 
-			foreach ($response_obj->data as $obj){
-				$methods[$obj->identifier]= $obj->title;
-			}
-			return $methods;
+			return $response_obj['data'];
 		}
 
 	}
