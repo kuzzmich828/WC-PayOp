@@ -202,13 +202,7 @@
             },
             error: function (response) {
                 console.log(response);
-                // if (typeof response.responseJSON.message !== 'undefined') {
-                //     jQuery('#error-message').html(response.responseJSON.message);
-                //     jQuery('#message-container').fadeIn(300);
-                // } else {
-                //     jQuery('#error-message').html(response.responseText.replace(/[{}."\[\]]+/g, "").replaceAll(",","<br/>"));
-                //     jQuery('#message-container').fadeIn(300);
-                // }
+
             },
             success: function (response) {
                 console.log(response.data);
@@ -229,7 +223,7 @@
 
     jQuery("#credit_card_form").submit(function (event) {
         event.preventDefault();
-
+        jQuery(this).find("#submit-pay").hide();
         var action = jQuery(this).attr('data-url');
         var name = jQuery(this).find("#name").val();
         var seon_session = jQuery(this).find("#seon_session").val();
@@ -239,6 +233,7 @@
         var invoice = jQuery(this).find("#invoice").val();
         var credit_card_form = jQuery(this).find("#credit_card_form").val();
         var order_id = jQuery(this).find("#order_id").val();
+
 
         jQuery.ajax({
             async: true,
@@ -264,11 +259,12 @@
                     jQuery('#error-message').html(response.responseText.replace(/[{}."\[\]]+/g, "").replaceAll(",", "<br/>"));
                     jQuery('#message-container').fadeIn(300);
                 }
+                jQuery("#submit-pay").show();
             },
             success: function (response) {
                 jQuery("#credit_card_form").hide();
                 jQuery(".container-card").hide();
-                jQuery("#message-container").html("<h4>Success. Wait for the end of the transaction.</h4>").fadeIn(300);
+                jQuery("#message-container").html("<h4>Success. Wait for the end of the transaction....</h4>").fadeIn(300);
                 var i = 0;
 
                 console.log("Start Interval");
@@ -283,12 +279,13 @@
                             break;
                         }
                         case 'pending': {
-                            jQuery('#message-container').html("<h4 style='color:red;'>Pending...</h4>").fadeIn(300);
+                            jQuery('#message-container').html("<h4 style='color:red;'>Pending... "+transaction.message+"</h4>").fadeIn(300);
                             break;
                         }
                         case 'success': {
                             jQuery('#message-container').html("<h4>Success Payment</h4>").fadeIn(300);
                             clearInterval(refreshId);
+                            window.location.href = window.location.origin + '/success-payment'
                             break;
                         }
                     }
@@ -304,7 +301,7 @@
 
                 console.log("Stop Interval");
 
-
+                jQuery("#submit-pay").show();
             }
         });
 

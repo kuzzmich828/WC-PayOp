@@ -228,10 +228,7 @@ class Payop_Gateway extends WC_Payment_Gateway
 	*/
 	public function process_payment($order_id)
 	{
-		ini_set('display_errors', 1);
-		ini_set('display_startup_errors', 1);
-		error_reporting(E_ALL);
-	    global $woocommerce;
+		global $woocommerce;
 
 		$order = new WC_Order($order_id);
 
