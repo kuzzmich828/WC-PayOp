@@ -17,6 +17,15 @@ class Payop_Order
 		return wc_get_order($uuid);
 	}
 
+	public function setOrderPaymentMethod($method){
+		$paymentMethod = sanitize_text_field($method);
+		update_post_meta($this->order->get_id(), 'paymentMethod', $paymentMethod);
+	}
+
+	public function getOrderPaymentMethod(){
+		return get_post_meta($this->order->get_id(), 'paymentMethod', true);
+	}
+
 	public function updateStatusOrderAfterTransaction($invoiceStatus)
 	{
 		$wc_status = false;

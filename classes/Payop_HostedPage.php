@@ -26,7 +26,7 @@ class Payop_HostedPage extends Abstract_Payop_Helper
 		}
 	}
 
-	public function createInvoice($order, $paymentMethod, $language, $resultUrl, $failPath)
+	public function createInvoice($order, $paymentMethod = false, $language, $resultUrl, $failPath)
 	{
 		$order_items_invoice = [];
 		$items = $order->get_items();
@@ -62,12 +62,14 @@ class Payop_HostedPage extends Abstract_Payop_Helper
 				"extraFields" => [],
 			],
 
-			"paymentMethod" => $paymentMethod,
 			"language" => $language,
 			"resultUrl" => $resultUrl,
 			"failPath" => $failPath,
 
 		];
+
+		if ($paymentMethod)
+			$request_order['paymentMethod'] = $paymentMethod;
 
 		return $this->curlPOST(self::CREATE_INVOICE_URL, $request_order);
 

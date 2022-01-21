@@ -11,7 +11,6 @@ class Payop_ServerToServer extends Abstract_Payop_Helper
 	public function __construct(string $server)
 	{
 		$this->server = $server;
-
 	}
 
 	public function createBankCardToken(string $invoiceID, array $card)
@@ -60,4 +59,10 @@ class Payop_ServerToServer extends Abstract_Payop_Helper
 
 	}
 
+	public function is_card_method($method, $all_methods) : bool
+	{
+		foreach ($all_methods as $method){
+			/* TODO check methods */
+		}
+	}
 }
