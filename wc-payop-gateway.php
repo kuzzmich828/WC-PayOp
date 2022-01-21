@@ -65,7 +65,9 @@ add_action('wp_ajax_check_invoice_status', 'callback_check_invoice_status');
 add_action('wp_ajax_nopriv_check_invoice_status', 'callback_check_invoice_status');
 function callback_check_invoice_status()
 {
-	$serverServer = new Payop_ServerToServer('Stage');
+	$gateway = new WC_Payment_Gateways();
+	$server = $gateway->get_available_payment_gateways() [Payop_Settings::NAME_GATEWAY]->settings[Payop_Settings::NAME_GATEWAY . '_server'];
+	$serverServer = new Payop_ServerToServer($server);
 	$response = $serverServer->checkInvoiceStatus($_POST['invoice']);
 	wp_send_json($response, 200);
 	wp_die();
@@ -73,7 +75,8 @@ function callback_check_invoice_status()
 
 add_action('wp_ajax_credit_card_form', 'callback_credit_card_form');
 add_action('wp_ajax_nopriv_credit_card_form', 'callback_credit_card_form');
-function callback_credit_card_form(){
+function callback_credit_card_form()
+{
 
 	if (!isset($_POST['credit_card_form'])
 		|| !wp_verify_nonce($_POST['credit_card_form'], 'credit_card_form_action')
@@ -82,9 +85,10 @@ function callback_credit_card_form(){
 		wp_die();
 	}
 
-	$serverServer = new Payop_ServerToServer('Stage');
+	$gateway = new WC_Payment_Gateways();
+	$server = $gateway->get_available_payment_gateways() [Payop_Settings::NAME_GATEWAY]->settings[Payop_Settings::NAME_GATEWAY . '_server'];
 
-	$order_id = $_POST['order_id'];
+	$serverServer = new Payop_ServerToServer($server);
 
 	$card = [
 		'holderName' => $_POST['name'],
@@ -93,10 +97,16 @@ function callback_credit_card_form(){
 		'cvv' => $_POST['securitycode'],
 	];
 
+	$order_id = $_POST['order_id'];
+	$order = new WC_Order($order_id);
+	if (!$order){
+		wp_send_json(['message' => 'Order not found'], 400);
+		wp_die();
+	}
 	$customer = [
-		'name' => 'Name name',
-		'email' => 'email@mail.co',
-		'ip' => '127.0.0.1',
+		'name' => $order->get_billing_first_name() ,
+		'email' => $order->get_billing_email(),
+		'ip' => $order->get_customer_ip_address(),
 	];
 
 	if (isset($_POST['seon_session']) && $_POST['seon_session']) {
@@ -106,12 +116,13 @@ function callback_credit_card_form(){
 	$bankCardToken = $serverServer->createBankCardToken($_POST['invoice'], $card);
 
 	/* TODO: Check  bankCardToken on Errors */
-	if (!isset($bankCardToken['token'])) {
-		wp_send_json($bankCardToken, 400);
+	if (!isset($bankCardToken['token']) && isset($bankCardToken['message'])) {
+		wp_send_json($bankCardToken['message'], 400);
 	}
+	/* Create checkoutTransaction */
+	$checkoutTransaction = $serverServer->createCheckoutTransaction($_POST['invoice'], $customer, '/thankyou', false, false, $bankCardToken['token']);
 
-	$checkoutTransaction = $serverServer->createCheckoutTransaction($_POST['invoice'], $customer, 'https://the-web.space/', false, false, $bankCardToken['token']);
-
+	/* Check status invoice after transaction */
 	$statusInvoice = $serverServer->checkInvoiceStatus($_POST['invoice']);
 
 	$PayopOrder = new Payop_Order($order_id);
@@ -132,3 +143,4 @@ function callback_credit_card_form(){
 
 	wp_die();
 }
+

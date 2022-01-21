@@ -32,7 +32,7 @@ class Payop_Order
 				break;
 			// Invoice pending
 			case 'pending':
-				$wc_status = 'pending';
+				$wc_status = 'processing';
 				break;
 			// Invoice failed
 			case 'fail':
@@ -45,15 +45,11 @@ class Payop_Order
 			return false;
 		}
 
-
-
 		if ($this->order->get_status() != $wc_status) {
 			$this->order->update_status($wc_status);
-
 			if ($wc_note) {
 				$this->order->add_order_note($wc_note);
 			}
-
 			return true;
 		}
 	}

@@ -54,7 +54,11 @@ class Payop_Gateway extends WC_Payment_Gateway
 		$this->init_form_fields();
 
 //		add_action('woocommerce_receipt_' . Payop_Settings::NAME_GATEWAY, [$this, 'receipt_page'], 99, 1);
+//		add_action('woocommerce_receipt', [$this, 'receipt_page'], 99, 1);
+//		add_action('woocommerce_thankyou_'. Payop_Settings::NAME_GATEWAY, [$this, 'receipt_page'], 99, 1);
 		add_action('woocommerce_thankyou', [$this, 'receipt_page'], 99, 1);
+
+		add_filter('woocommerce_thankyou_order_received_text', [$this, 'order_complete'], 100, 2);
 
 		// This action hook saves the settings
 		add_action('woocommerce_update_options_payment_gateways_' . $this->id, array($this, 'process_admin_options'));
@@ -185,12 +189,6 @@ class Payop_Gateway extends WC_Payment_Gateway
 	 */
 	public function process_payment($order_id)
 	{
-		ini_set('display_errors', 1);
-		ini_set('display_startup_errors', 1);
-		error_reporting(E_ALL);
-
-		$order = new WC_Order($order_id);
-
 		global $woocommerce;
 
 		$order = new WC_Order($order_id);
@@ -221,17 +219,27 @@ class Payop_Gateway extends WC_Payment_Gateway
 			);
 		}
 
-
 		wc_add_notice("Unknown Error", 'error');
 
 		return false;
 
 	}
 
+	public function order_complete($title, $order)
+	{
+		if ($order->get_status() == 'completed' || $order->get_status() == 'processing') {
+			return 'Thank You. Order is Completed.';
+		}
+	}
+
 	public function receipt_page($order_id)
 	{
 
 		$order = new WC_Order($order_id);
+
+		if ($order->get_status() == 'completed' || $order->get_status() == 'processing') {
+			return;
+		}
 
 		$PayopHostedPage = new Payop_HostedPage($this->secret_key, $this->public_key, $this->server);
 
@@ -247,6 +255,7 @@ class Payop_Gateway extends WC_Payment_Gateway
 
 			case Payop_Settings::PAYMENT_TYPE_HOSTED_PAGE:
 			{
+
 				echo '<p>' . __('Thank you for your order, please click the button below to pay', 'payop-woocommerce') . '</p>';
 				echo '<form action="' . str_replace('{{locale}}', $this->language, $PayopHostedPage->getProcessingUrl()) . $invoice . '" method="GET" id="payop_payment_form">' . "\n" .
 					'<input type="submit" class="button" id="submit_payop_payment_form" value="' . __('Pay', 'payop-woocommerce') . '" />

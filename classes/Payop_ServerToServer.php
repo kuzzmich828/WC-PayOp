@@ -8,7 +8,7 @@ class Payop_ServerToServer extends Abstract_Payop_Helper
 	const CREATE_CHECKOUT_TRANSACTION_URL = 'v1/checkout/create';
 	const CHECK_INVOICE_STATUS_URL = 'v1/checkout/check-invoice-status/';
 
-	public function __construct($server)
+	public function __construct(string $server)
 	{
 		$this->server = $server;
 
