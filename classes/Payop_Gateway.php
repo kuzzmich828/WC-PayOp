@@ -169,6 +169,8 @@ class Payop_Gateway extends WC_Payment_Gateway
 				'type' => 'text',
 			),
 
+
+			
 			Payop_Settings::ID_GATEWAY . '_failPath' => array(
 				'title' => __('Fail URL', 'wc-payop'),
 				'type' => 'text',
