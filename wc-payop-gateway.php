@@ -35,6 +35,8 @@ function wc_payop_init_gateway_class()
 	require_once(__DIR__ . '/classes/Payop_Gateway.php');
 }
 
+
+
 add_action('wp_enqueue_scripts', 'enqueue_card_scripts');
 function enqueue_card_scripts()
 {
@@ -101,8 +103,6 @@ function callback_payment_processing()
 		wp_send_json(['message' => 'Order not found'], 400);
 		wp_die();
 	}
-
-	$order->update_status('processing');
 
 	$payopOrder = new Payop_Order($order_id);
 	$cardToken = false;

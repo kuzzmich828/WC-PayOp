@@ -4,6 +4,9 @@ jQuery(document).ready(function () {
         event.preventDefault();
 
         jQuery(this).find("#submit-pay").hide();
+        jQuery("div.spanner").addClass("show");
+        jQuery("#message-wait").html("Wait for the end of the transaction...");
+        jQuery('#message-error').fadeIn(300);
 
         var action = jQuery(this).attr('data-url');
         var invoice = jQuery(this).find("#invoice").val();
@@ -33,38 +36,48 @@ jQuery(document).ready(function () {
             data: ajax_data,
             error: function (response) {
                 if (typeof response.responseJSON.message !== 'undefined') {
-                    jQuery('#error-message').html(response.responseJSON.message);
-                    jQuery('#message-container').fadeIn(300);
+                    jQuery('#message-error').html(response.responseJSON.message);
+                    jQuery('#message-error').fadeIn(300);
                 } else {
-                    jQuery('#error-message').html(response.responseText.replace(/[{}."\[\]]+/g, "").replaceAll(",", "<br/>"));
-                    jQuery('#message-container').fadeIn(300);
+                    jQuery('#message-error').html(response.responseText.replace(/[{}."\[\]]+/g, "").replaceAll(",", "<br/>"));
+                    jQuery('#message-error').fadeIn(300);
                 }
                 jQuery("#submit-pay").show();
+                jQuery("div.spanner").removeClass("show");
             },
             success: function (response) {
-                jQuery("#credit_card_form").hide();
+
+                jQuery("#payment_processing_form").hide();
                 jQuery(".container-card").hide();
-                jQuery("#message-container").html("<h4>Wait for the end of the transaction...</h4>").fadeIn(300);
+
                 var i = 0;
 
                 var refreshId = setInterval(function (invoice) {
+
                     var transaction = checkTransaction(invoice);
                     if (typeof transaction.data.form.url !== 'undefined' && transaction.data.form.url) {
                         clearInterval(refreshId);
                         window.location.href = transaction.data.form.url;
                     }
+
                     switch (transaction.status) {
                         case 'fail': {
                             clearInterval(refreshId);
-                            jQuery('#message-container').html("<h4 style='color:red;'>" + transaction.data.message + "</h4>").fadeIn(300);
+                            jQuery('#message-error').html(transaction.data.message ).fadeIn(300);
+                            jQuery("div.spanner").removeClass("show");
+                            jQuery("#submit-pay").show();
                             break;
                         }
                         case 'pending': {
-                            jQuery('#message-container').html("<h4 style='color:red;'>Pending... <br/>" + transaction.data.message + "</h4>").fadeIn(300);
+                            jQuery('#message-error').html("Pending... <br/>" + transaction.data.message ).fadeIn(300);
+                            jQuery('#message-wait').html("Pending... " + transaction.data.message );
+                            jQuery("div.spanner").removeClass("show");
+                            jQuery("#submit-pay").show();
                             break;
                         }
                         case 'success': {
-                            jQuery('#message-container').html("<h4>Success Payment</h4>").fadeIn(300);
+                            jQuery("div.spanner").removeClass("show");
+                            jQuery('#message-error').html("<h4 style='color:black !important;'>Success Payment</h4>").fadeIn(300);
                             clearInterval(refreshId);
                             window.location.href = payop_ajax.success_url
                             break;
@@ -75,10 +88,13 @@ jQuery(document).ready(function () {
                         clearInterval(refreshId);
                     }
                     i++;
+
+
                     console.log(i, transaction);
                 }, 3000, invoice);
 
-                jQuery("#submit-pay").show();
+
+
             }
         });
 

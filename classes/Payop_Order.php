@@ -43,6 +43,19 @@ class Payop_Order
 		return false;
 	}
 
+	public function info_method_Order(): array
+	{
+		$orderMethod = $this->getOrderPaymentMethod();
+		$Payop_Gateway = new Payop_Gateway();
+		$gatewayMethods = $Payop_Gateway->get_info_methods();
+		foreach ($gatewayMethods as $gatewayMethod) {
+			if ($orderMethod == $gatewayMethod['identifier']) {
+				return $gatewayMethod;
+			}
+		}
+		return false;
+	}
+
 	public function updateStatusOrderAfterTransaction($invoiceStatus)
 	{
 		$wc_status = false;

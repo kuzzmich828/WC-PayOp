@@ -336,7 +336,8 @@ class Payop_Gateway extends WC_Payment_Gateway
 			{
 
 				$payOrder = new Payop_Order($order_id);
-				$paymentMethod = $payOrder->getOrderPaymentMethod();
+				$info_method_Order = $payOrder->info_method_Order();
+				$paymentMethod = $info_method_Order['identifier'];
 				$serverServer = new Payop_ServerToServer($this->server);
 
 				include_once __DIR__ . '/../template/payment-form.php';
