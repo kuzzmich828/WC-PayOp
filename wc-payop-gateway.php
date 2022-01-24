@@ -39,11 +39,13 @@ add_action('wp_enqueue_scripts', 'action_function_name_7714');
 function action_function_name_7714()
 {
 	if (is_page('checkout')) {
-		wp_enqueue_script('credit-card-script', plugin_dir_url(__FILE__) . '/assets/js/credit-card.js', []);
-		wp_enqueue_script('imask-script', '//cdnjs.cloudflare.com/ajax/libs/imask/3.4.0/imask.min.js', []);
-		wp_enqueue_style('credit-card-style', plugin_dir_url(__FILE__) . '/assets/css/credit-card.css', []);
 
-		wp_localize_script('credit-card-script', 'payop_ajax',
+		wp_enqueue_script('credit-card-script', plugin_dir_url(__FILE__) . 'assets/js/credit-card.js', ['jquery']);
+		wp_enqueue_script('payop-script', plugin_dir_url(__FILE__) . 'assets/js/payop.js', ['jquery']);
+		wp_enqueue_script('imask-script', 'https://cdnjs.cloudflare.com/ajax/libs/imask/3.4.0/imask.min.js', ['jquery']);
+		wp_enqueue_style('credit-card-style', plugin_dir_url(__FILE__) . 'assets/css/credit-card.css', [] );
+
+		wp_localize_script('jquery', 'payop_ajax',
 			array(
 				'url' => admin_url('admin-ajax.php'),
 				'check_invoice_status' => 'check_invoice_status',
@@ -73,36 +75,57 @@ function callback_check_invoice_status()
 	wp_die();
 }
 
-add_action('wp_ajax_credit_card_form', 'callback_credit_card_form');
-add_action('wp_ajax_nopriv_credit_card_form', 'callback_credit_card_form');
-function callback_credit_card_form()
+add_action('wp_ajax_payment_processing', 'callback_payment_processing');
+add_action('wp_ajax_nopriv_payment_processing', 'callback_payment_processing');
+function callback_payment_processing()
 {
 
-	if (!isset($_POST['credit_card_form'])
-		|| !wp_verify_nonce($_POST['credit_card_form'], 'credit_card_form_action')
+	// ********** WP Verify Nonce ***************
+	if (!isset($_POST['payment_processing'])
+		|| !wp_verify_nonce($_POST['payment_processing'], 'payment_processing_action')
 	) {
 		wp_send_json(['message' => 'Sorry, your nonce did not verify.'], 400);
 		wp_die();
 	}
 
+	// ********** Get Server Option ***************
 	$gateway = new WC_Payment_Gateways();
 	$server = $gateway->get_available_payment_gateways() [Payop_Settings::NAME_GATEWAY]->settings[Payop_Settings::NAME_GATEWAY . '_server'];
-
 	$serverServer = new Payop_ServerToServer($server);
 
-	$card = [
-		'holderName' => $_POST['name'],
-		'pan' => preg_replace('/\s+/', '', $_POST['cardnumber']),
-		'expirationDate' => $_POST['expirationdate'],
-		'cvv' => $_POST['securitycode'],
-	];
-
+	// ********** Get Order ***************
 	$order_id = $_POST['order_id'];
 	$order = new WC_Order($order_id);
 	if (!$order){
 		wp_send_json(['message' => 'Order not found'], 400);
 		wp_die();
 	}
+
+	$payOrder = new Payop_Order($order_id);
+	$paymentMethod = $payOrder->getOrderPaymentMethod();
+	$serverServer = new Payop_ServerToServer($server);
+	$cardToken = false;
+
+	if ($serverServer->is_card_method($paymentMethod, json_decode($gateway->get_available_payment_gateways() [Payop_Settings::NAME_GATEWAY]->settings[Payop_Settings::NAME_GATEWAY . '_info_methods'], true))) {
+		/* ************* FOR CARD METHOD ***************** */
+		$card = [
+			'holderName' => $_POST['name'],
+			'pan' => preg_replace('/\s+/', '', $_POST['cardnumber']),
+			'expirationDate' => $_POST['expirationdate'],
+			'cvv' => $_POST['securitycode'],
+		];
+		$bankCardToken = $serverServer->createBankCardToken($_POST['invoice'], $card);
+		/* TODO: Check  bankCardToken on Errors */
+		if (!isset($bankCardToken['token'])) {
+			wp_send_json(($bankCardToken), 400);
+			wp_die();
+		}
+		$cardToken = $bankCardToken['token'];
+		/* ************* FOR CARD METHOD ***************** */
+	}
+
+
+	/* ************* Get Customer Option ***************** */
 	$customer = [
 		'name' => $order->get_billing_first_name() ,
 		'email' => $order->get_billing_email(),
@@ -113,16 +136,9 @@ function callback_credit_card_form()
 		$customer['seon_session'] = $_POST['seon_session'];
 	}
 
-	$bankCardToken = $serverServer->createBankCardToken($_POST['invoice'], $card);
 
-//	var_dump($bankCardToken);
-	/* TODO: Check  bankCardToken on Errors */
-	if (!isset($bankCardToken['token'])) {
-		wp_send_json(($bankCardToken), 400);
-		wp_die();
-	}
 	/* Create checkoutTransaction */
-	$checkoutTransaction = $serverServer->createCheckoutTransaction($_POST['invoice'], $customer, '/thankyou', false, false, $bankCardToken['token']);
+	$checkoutTransaction = $serverServer->createCheckoutTransaction($_POST['invoice'], $customer, 'https://the-web.space/', false, false, $cardToken);
 
 	/* Check status invoice after transaction */
 	$statusInvoice = $serverServer->checkInvoiceStatus($_POST['invoice']);

@@ -68,7 +68,7 @@ class Payop_Gateway extends WC_Payment_Gateway
 		add_action('woocommerce_update_options_payment_gateways_' . $this->id, array($this, 'process_admin_options'));
 		add_action('woocommerce_checkout_update_order_meta', array($this, 'custom_payment_update_order_meta'));
 		// We need custom JavaScript
-		wp_enqueue_script('payop-script', plugin_dir_url(__DIR__) . '/assets/js/payop.js');
+//		wp_enqueue_script('payop-script', plugin_dir_url(__DIR__) . '/assets/js/payop.js');
 
 
 	}
@@ -187,9 +187,8 @@ class Payop_Gateway extends WC_Payment_Gateway
 			Payop_Settings::ID_GATEWAY . '_info_methods' => array(
 				'title' => __('All Types', 'wc-payop'),
 				'type' => 'hidden',
-                'default' => json_encode($aviablePayMethods)
+				'default' => json_encode($aviablePayMethods),
 			),
-
 
 
 		);
@@ -211,7 +210,7 @@ class Payop_Gateway extends WC_Payment_Gateway
 	{
 
 		if ($this->paymentType == Payop_Settings::PAYMENT_TYPE_HOSTED_PAGE)
-		    return;
+			return;
 
 		$avableMethods = Payop_Settings::getAviableMethods(Payop_Settings::SERVERS_URL[$this->server], $this->application, $this->jwtToken);
 
@@ -256,32 +255,13 @@ class Payop_Gateway extends WC_Payment_Gateway
 		global $woocommerce;
 
 		$order = new WC_Order($order_id);
+		$payOrder = new Payop_Order($order_id);
+		$paymentMethod = $payOrder->getOrderPaymentMethod();
 
 		$PayopHostedPage = new Payop_HostedPage($this->secret_key, $this->public_key . '', $this->server);
 
-		$paymentMethod = false;
-
-		switch ($this->paymentType) {
-			case Payop_Settings::PAYMENT_TYPE_HOSTED_PAGE:
-			{
-				$paymentMethod = ($this->paymentMethod == 0) ? false : $this->paymentMethod;
-				break;
-			}
-			case Payop_Settings::PAYMENT_TYPE_SERVER_SERVER:
-			{
-				$payOrder = new Payop_Order($order_id);
-				$paymentMethod = $payOrder->getOrderPaymentMethod();
-				break;
-			}
-		}
-
 		// create invoice by API PayOp
 		$invoice = $PayopHostedPage->createInvoice($order, $paymentMethod, $this->language, $this->resultUrl, $this->failPath);
-
-		if ($this->paymentType == Payop_Settings::PAYMENT_TYPE_SERVER_SERVER) {
-			$serverServer = new Payop_ServerToServer($this->server);
-			$serverServer->is_card_method($paymentMethod, $this->info_methods);
-		}
 
 		if ((!$invoice || !isset($invoice->status) || $invoice->status != 1) && isset($invoice->message)) {
 			wc_add_notice(json_encode($invoice->message), 'error');
@@ -299,7 +279,7 @@ class Payop_Gateway extends WC_Payment_Gateway
 			$order->save_meta_data();
 			return array(
 				'result' => 'success',
-				'redirect' => $this->get_return_url($order)
+				'redirect' => $this->get_return_url($order),
 			);
 		}
 
@@ -333,22 +313,24 @@ class Payop_Gateway extends WC_Payment_Gateway
 
 			case Payop_Settings::PAYMENT_TYPE_SERVER_SERVER:
 			{
-				include_once __DIR__ . '/../template/card-form.php';
-				break;
+
+				$payOrder = new Payop_Order($order_id);
+				$paymentMethod = $payOrder->getOrderPaymentMethod();
+				$serverServer = new Payop_ServerToServer($this->server);
+
+				include_once __DIR__ . '/../template/payment-form.php';
+                break;
+
 			}
 
 			case Payop_Settings::PAYMENT_TYPE_HOSTED_PAGE:
 			{
 
 				echo '<p>' . __('Thank you for your order, please click the button below to pay', 'payop-woocommerce') . '</p>';
-				echo '
-<form action="' . str_replace('{{locale}}', $this->language, $PayopHostedPage->getProcessingUrl()) . $invoice . '"
-      method="GET" id="payop_payment_form">' . "\n" .
-					'<input type="submit" class="button" id="submit_payop_payment_form" value="' . __('Pay', 'payop-woocommerce') . '"/>
-    <a class="button cancel" href="' . $order->get_cancel_order_url() . '">' . __('Refuse payment & return to cart',
-						'payop-woocommerce') . '</a>' . "\n" .
-					'
-</form>';
+				echo '<form action="' . str_replace('{{locale}}', $this->language, $PayopHostedPage->getProcessingUrl()) . $invoice . '" method="GET" id="payop_payment_form" xmlns="http://www.w3.org/1999/html">' . "\n" .
+					    '<input type="submit" class="button" id="submit_payop_payment_form" value="' . __('Pay', 'payop-woocommerce') . '">' . "\n" .
+                            '<a class="button cancel" href="' . $order->get_cancel_order_url() . '">' . __('Refuse payment & return to cart', 'payop-woocommerce') . '</a></input>' . "\n" .
+					'</form>';
 				break;
 			}
 

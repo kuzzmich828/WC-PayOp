@@ -59,10 +59,17 @@ class Payop_ServerToServer extends Abstract_Payop_Helper
 
 	}
 
-	public function is_card_method($method, $all_methods) : bool
+	public function is_card_method(int $method, array $all_methods): bool
 	{
-		foreach ($all_methods as $method){
-			/* TODO check methods */
+		foreach ($all_methods as $_method) {
+			if ($method == $_method['identifier']) {
+				if ($_method['formType'] == 'cards') {
+					return true;
+				} else {
+					return false;
+				}
+			}
 		}
+		return false;
 	}
 }
