@@ -73,6 +73,27 @@ class Payop_Gateway extends WC_Payment_Gateway
 
 	}
 
+	public function get_info_methods()
+	{
+		return json_decode($this->info_methods, true);
+	}
+
+	public function get_resultUrl()
+	{
+		return $this->resultUrl;
+	}
+
+	public function get_server()
+	{
+		return $this->server;
+	}
+
+	public function get_failPath()
+	{
+		return $this->failPath;
+	}
+
+
 	/**
 	 * Plugin options, we deal with it in Step 3 too
 	 */
@@ -319,7 +340,7 @@ class Payop_Gateway extends WC_Payment_Gateway
 				$serverServer = new Payop_ServerToServer($this->server);
 
 				include_once __DIR__ . '/../template/payment-form.php';
-                break;
+				break;
 
 			}
 
@@ -328,8 +349,8 @@ class Payop_Gateway extends WC_Payment_Gateway
 
 				echo '<p>' . __('Thank you for your order, please click the button below to pay', 'payop-woocommerce') . '</p>';
 				echo '<form action="' . str_replace('{{locale}}', $this->language, $PayopHostedPage->getProcessingUrl()) . $invoice . '" method="GET" id="payop_payment_form" xmlns="http://www.w3.org/1999/html">' . "\n" .
-					    '<input type="submit" class="button" id="submit_payop_payment_form" value="' . __('Pay', 'payop-woocommerce') . '">' . "\n" .
-                            '<a class="button cancel" href="' . $order->get_cancel_order_url() . '">' . __('Refuse payment & return to cart', 'payop-woocommerce') . '</a></input>' . "\n" .
+					'<input type="submit" class="button" id="submit_payop_payment_form" value="' . __('Pay', 'payop-woocommerce') . '">' . "\n" .
+					'<a class="button cancel" href="' . $order->get_cancel_order_url() . '">' . __('Refuse payment & return to cart', 'payop-woocommerce') . '</a></input>' . "\n" .
 					'</form>';
 				break;
 			}

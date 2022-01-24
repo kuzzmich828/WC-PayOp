@@ -26,6 +26,23 @@ class Payop_Order
 		return get_post_meta($this->order->get_id(), 'paymentMethod', true);
 	}
 
+	public function is_card_method_Order(): bool
+	{
+		$orderMethod = $this->getOrderPaymentMethod();
+		$Payop_Gateway = new Payop_Gateway();
+		$gatewayMethods = $Payop_Gateway->get_info_methods();
+		foreach ($gatewayMethods as $gatewayMethod) {
+			if ($orderMethod == $gatewayMethod['identifier']) {
+				if ($gatewayMethod['formType'] == 'cards') {
+					return true;
+				} else {
+					return false;
+				}
+			}
+		}
+		return false;
+	}
+
 	public function updateStatusOrderAfterTransaction($invoiceStatus)
 	{
 		$wc_status = false;

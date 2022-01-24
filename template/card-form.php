@@ -147,7 +147,7 @@
     </div>
 </form>
 
-<script src="//cdn.seon.io/js/v4/agent.js"></script>
+
 <script>
     seon.config({
         session_id: '{session_id}',

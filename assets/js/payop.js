@@ -1,5 +1,4 @@
 jQuery(document).ready(function () {
-
     jQuery("#payment_processing_form").submit(function (event) {
 
         event.preventDefault();
@@ -45,7 +44,7 @@ jQuery(document).ready(function () {
             success: function (response) {
                 jQuery("#credit_card_form").hide();
                 jQuery(".container-card").hide();
-                jQuery("#message-container").html("<h4>Success. Wait for the end of the transaction....</h4>").fadeIn(300);
+                jQuery("#message-container").html("<h4>Wait for the end of the transaction...</h4>").fadeIn(300);
                 var i = 0;
 
                 var refreshId = setInterval(function (invoice) {
@@ -61,13 +60,13 @@ jQuery(document).ready(function () {
                             break;
                         }
                         case 'pending': {
-                            jQuery('#message-container').html("<h4 style='color:red;'>Pending... " + transaction.data.message + "</h4>").fadeIn(300);
+                            jQuery('#message-container').html("<h4 style='color:red;'>Pending... <br/>" + transaction.data.message + "</h4>").fadeIn(300);
                             break;
                         }
                         case 'success': {
                             jQuery('#message-container').html("<h4>Success Payment</h4>").fadeIn(300);
                             clearInterval(refreshId);
-                            window.location.href = window.location.origin + '/success-payment'
+                            window.location.href = payop_ajax.success_url
                             break;
                         }
                     }
@@ -84,9 +83,7 @@ jQuery(document).ready(function () {
         });
 
     });
-
 });
-
 
 function checkTransaction(invoice) {
 

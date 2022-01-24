@@ -35,33 +35,33 @@ function wc_payop_init_gateway_class()
 	require_once(__DIR__ . '/classes/Payop_Gateway.php');
 }
 
-add_action('wp_enqueue_scripts', 'action_function_name_7714');
-function action_function_name_7714()
+add_action('wp_enqueue_scripts', 'enqueue_card_scripts');
+function enqueue_card_scripts()
 {
-	if (is_page('checkout')) {
+	if (is_order_received_page()  ) {
 
-		wp_enqueue_script('credit-card-script', plugin_dir_url(__FILE__) . 'assets/js/credit-card.js', ['jquery']);
+		$order = new Payop_Order(get_query_var('order-received'));
+		if ($order->is_card_method_Order()){
+			wp_enqueue_script('imask-script', 'https://cdnjs.cloudflare.com/ajax/libs/imask/3.4.0/imask.min.js', ['jquery']);
+			wp_enqueue_script('seon-agent', 'https://cdn.seon.io/js/v4/agent.js', ['jquery']);
+			wp_enqueue_script('credit-card-script', plugin_dir_url(__FILE__) . 'assets/js/credit-card.js', ['jquery']);
+			wp_enqueue_style('credit-card-style', plugin_dir_url(__FILE__) . 'assets/css/credit-card.css', []);
+		}
+
+		$Payop_Gateway = new Payop_Gateway();
+
 		wp_enqueue_script('payop-script', plugin_dir_url(__FILE__) . 'assets/js/payop.js', ['jquery']);
-		wp_enqueue_script('imask-script', 'https://cdnjs.cloudflare.com/ajax/libs/imask/3.4.0/imask.min.js', ['jquery']);
-		wp_enqueue_style('credit-card-style', plugin_dir_url(__FILE__) . 'assets/css/credit-card.css', [] );
-
 		wp_localize_script('jquery', 'payop_ajax',
 			array(
 				'url' => admin_url('admin-ajax.php'),
 				'check_invoice_status' => 'check_invoice_status',
+				'success_url' => $Payop_Gateway->get_resultUrl(),
+				'fail_url' => $Payop_Gateway->get_failPath(),
 			)
 		);
+
 	}
 }
-
-/*add_filter('page_template', 'wc_payop_page_template');
-function wc_payop_page_template($page_template)
-{
-	if (is_page('payment-credit-card') || is_page('checkout')) {
-		$page_template = dirname(__FILE__) . '/template/card-form.php';
-	}
-	return $page_template;
-}*/
 
 add_action('wp_ajax_check_invoice_status', 'callback_check_invoice_status');
 add_action('wp_ajax_nopriv_check_invoice_status', 'callback_check_invoice_status');
@@ -88,25 +88,26 @@ function callback_payment_processing()
 		wp_die();
 	}
 
+
 	// ********** Get Server Option ***************
-	$gateway = new WC_Payment_Gateways();
-	$server = $gateway->get_available_payment_gateways() [Payop_Settings::NAME_GATEWAY]->settings[Payop_Settings::NAME_GATEWAY . '_server'];
+	$payopGateway = new Payop_Gateway();
+	$server = $payopGateway->get_server();
 	$serverServer = new Payop_ServerToServer($server);
 
 	// ********** Get Order ***************
 	$order_id = $_POST['order_id'];
 	$order = new WC_Order($order_id);
-	if (!$order){
+	if (!$order) {
 		wp_send_json(['message' => 'Order not found'], 400);
 		wp_die();
 	}
 
-	$payOrder = new Payop_Order($order_id);
-	$paymentMethod = $payOrder->getOrderPaymentMethod();
-	$serverServer = new Payop_ServerToServer($server);
+	$order->update_status('processing');
+
+	$payopOrder = new Payop_Order($order_id);
 	$cardToken = false;
 
-	if ($serverServer->is_card_method($paymentMethod, json_decode($gateway->get_available_payment_gateways() [Payop_Settings::NAME_GATEWAY]->settings[Payop_Settings::NAME_GATEWAY . '_info_methods'], true))) {
+	if ($payopOrder->is_card_method_Order()) {
 		/* ************* FOR CARD METHOD ***************** */
 		$card = [
 			'holderName' => $_POST['name'],
@@ -124,10 +125,9 @@ function callback_payment_processing()
 		/* ************* FOR CARD METHOD ***************** */
 	}
 
-
 	/* ************* Get Customer Option ***************** */
 	$customer = [
-		'name' => $order->get_billing_first_name() ,
+		'name' => $order->get_billing_first_name(),
 		'email' => $order->get_billing_email(),
 		'ip' => $order->get_customer_ip_address(),
 	];
@@ -136,15 +136,14 @@ function callback_payment_processing()
 		$customer['seon_session'] = $_POST['seon_session'];
 	}
 
-
 	/* Create checkoutTransaction */
-	$checkoutTransaction = $serverServer->createCheckoutTransaction($_POST['invoice'], $customer, 'https://the-web.space/', false, false, $cardToken);
+	$checkoutTransaction = $serverServer->createCheckoutTransaction($_POST['invoice'], $customer, $payopGateway->get_resultUrl(), false, false, $cardToken);
 
+	sleep(2);
 	/* Check status invoice after transaction */
 	$statusInvoice = $serverServer->checkInvoiceStatus($_POST['invoice']);
 
-	$PayopOrder = new Payop_Order($order_id);
-	$PayopOrder->updateStatusOrderAfterTransaction($statusInvoice);
+	$payopOrder->updateStatusOrderAfterTransaction($statusInvoice);
 
 	/* TODO: Check  checkoutTransaction on Errors */
 	if (isset($checkoutTransaction['data']) && isset($checkoutTransaction['status']) && $checkoutTransaction['status']) {

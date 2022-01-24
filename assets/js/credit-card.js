@@ -1,4 +1,4 @@
-window.onload = function () {
+jQuery(document).ready(function () {
 
     const name = document.getElementById('name');
     const cardnumber = document.getElementById('cardnumber');
@@ -9,10 +9,9 @@ window.onload = function () {
     const ccsingle = document.getElementById('ccsingle');
     // const generatecard = document.getElementById('generatecard');
 
-
     let cctype = null;
 
-//Mask the Credit Card Number Input
+    //Mask the Credit Card Number Input
     var cardnumber_mask = new IMask(cardnumber, {
         mask: [
             {
@@ -216,14 +215,14 @@ window.onload = function () {
 
 
 // CREDIT CARD IMAGE JS
-    document.querySelector('.preload').classList.remove('preload');
-    document.querySelector('.creditcard').addEventListener('click', function () {
-        if (this.classList.contains('flipped')) {
-            this.classList.remove('flipped');
-        } else {
-            this.classList.add('flipped');
-        }
-    })
+//     document.querySelector('.preload').classList.remove('preload');
+//     document.querySelector('.creditcard').addEventListener('click', function () {
+//         if (this.classList.contains('flipped')) {
+//             this.classList.remove('flipped');
+//         } else {
+//             this.classList.add('flipped');
+//         }
+//     })
 
 //On Input Change Events
     name.addEventListener('input', function () {
@@ -276,4 +275,4 @@ window.onload = function () {
     securitycode.addEventListener('focus', function () {
         document.querySelector('.creditcard').classList.add('flipped');
     });
-};
+});
