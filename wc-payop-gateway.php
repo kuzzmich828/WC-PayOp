@@ -137,7 +137,7 @@ function callback_payment_processing()
 	/* Check status invoice after transaction */
 	$statusInvoice = $serverServer->checkInvoiceStatus($_POST['invoice']);
 
-	$payopOrder->updateStatusOrderAfterTransaction($statusInvoice);
+//	$payopOrder->updateStatusOrderAfterTransaction($statusInvoice);
 
 	/* TODO: Check  checkoutTransaction on Errors */
 	if (isset($checkoutTransaction['data']) && isset($checkoutTransaction['status']) && $checkoutTransaction['status']) {

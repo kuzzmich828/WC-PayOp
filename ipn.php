@@ -6,39 +6,11 @@
 add_action('template_redirect', function () {
 
     if (is_page('callback-ipn') || is_page('refund-ipn')) {
-
-        $json = file_get_contents('php://input');
-
-        // Log IPN from payment system
-        $file = fopen("ipn.log", "a");
-        if (trim($json)) {
-            fwrite($file, date("d.m.Y H:i:s") . "\t" . $json);
-            fwrite($file, "\n");
-            fclose($file);
-        }
-
-        $ipn = json_decode($json, true);
-
-        if (isset($ipn['invoice']['status']) && $ipn['invoice']['status']) {
-
-            $order = new Payop_Order($ipn['transaction']['order']['id']);
-
-            if (!$order) {
-                wp_redirect('/404/');
-                exit;
-            }
-
-            $order->updateStatusOrder($ipn['invoice'], $ipn['transaction']);
-
-            echo "OK";
-
-        } else {
-            wp_redirect('/404/');
-            exit;
-        }
-
-        exit;
+	    $json = file_get_contents('php://input');
+    	wp_remote_post(get_site_url() .  '?wc-api=wc_payop&payop=result',[
+    		'body'=>$json
+	    ]);
+    	wp_die();
     }
-
 
 });

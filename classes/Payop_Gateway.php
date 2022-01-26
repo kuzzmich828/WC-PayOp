@@ -57,7 +57,7 @@ class Payop_Gateway extends WC_Payment_Gateway
 		$this->init_form_fields();
 
 
-        //Payment listner/API hook
+		//Payment listner/API hook
 		add_action('woocommerce_api_wc_' . $this->id, [$this, 'listener_ipn']);
 		add_action('template_redirect', [$this, 'listener_ipn']);
 		// This action hook saves the settings
@@ -214,11 +214,11 @@ class Payop_Gateway extends WC_Payment_Gateway
 	public function payment_fields()
 	{
 		?>
-            <p style="margin: 20px 0;">
-                <label>
-                    <img src="https://payop.com/assets/images/landing/logos/logo_color.svg" style="max-height:32px;"/>
-                </label>
-            </p>
+        <p style="margin: 20px 0;">
+            <label>
+                <img src="https://payop.com/assets/images/landing/logos/logo_color.svg" style="max-height:32px;"/>
+            </label>
+        </p>
 		<?php
 
 		if ($this->paymentType == Payop_Settings::PAYMENT_TYPE_HOSTED_PAGE) {
@@ -362,12 +362,8 @@ class Payop_Gateway extends WC_Payment_Gateway
 
 	public function listener_ipn()
 	{
-		global $woocommerce;
 
-		if (!is_page('callback-ipn') || !is_page('refund-ipn'))
-		    return;
-
-		$requestType = !empty($_GET['payop']) ? $_GET['payop'] : '';
+		echo "<h1>IPN</h1>";
 
 		if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 			$postedData = json_decode(file_get_contents('php://input'), true);
@@ -375,88 +371,75 @@ class Payop_Gateway extends WC_Payment_Gateway
 				$postedData = [];
 			}
 		} else {
-			$postedData = $_GET;
+			return;
 		}
 
 		$f = fopen(__DIR__ . '/log.json', 'a');
-		fwrite($f, "[d/m/Y H:i:s]\t");
+		fwrite($f, "[" . date('d/m/Y H:i:s') . "]\t");
 		fwrite($f, json_encode($postedData));
 		fwrite($f, "\n");
 		fclose($f);
 
-		die;
-		switch ($requestType) {
-			case 'result':
-				@ob_clean();
+		@ob_clean();
 
-				$postedData = wp_unslash($postedData);
-				$valid = $this->check_ipn_request_is_valid($postedData);
-				if ($valid === 'V2'){
-					if ($postedData['transaction']['state'] === 4) {
-						wp_die('Status wait', 'Status wait', 200);
-					}
-					$orderId = $postedData['transaction']['order']['id'];
-					$order = new WC_Order($orderId);
-					if ($postedData['transaction']['state'] === 2) {
-						if ($this->auto_complete === 'yes') {
-							$order->update_status('completed', __('Payment successfully paid', 'payop-woocommerce'));
-						} else {
-							$order->update_status('processing', __('Payment successfully paid', 'payop-woocommerce'));
-						}
-						wp_die('Status success', 'Status success', 200);
-					} elseif ($postedData['transaction']['state'] === 3 or $postedData['transaction']['state'] === 5) {
-						$order->update_status('failed', __('Payment not paid', 'payop-woocommerce'));
-						wp_die('Status fail', 'Status fail', 200);
-					}
-					do_action('payop-ipn-request', $postedData);
-				} elseif ($valid = 'V1') {
-					if ($postedData['status'] === 'wait') {
-						wp_die('Status wait', 'Status wait', 200);
-					}
-					$orderId = $postedData['orderId'];
-					$order = new WC_Order($orderId);
+		$postedData = wp_unslash($postedData);
+		$valid = $this->check_ipn_request_is_valid($postedData);
 
-					if ($postedData['status'] === 'success') {
-						if ($this->auto_complete === 'yes') {
-							$order->update_status('completed', __('Payment successfully paid', 'payop-woocommerce'));
-						} else {
-							$order->update_status('processing', __('Payment successfully paid', 'payop-woocommerce'));
-						}
-						wp_die('Status success', 'Status success', 200);
-					} elseif ($postedData['status'] === 'error') {
-						$order->update_status('failed', __('Payment not paid', 'payop-woocommerce'));
-						wp_die('Status fail', 'Status fail', 200);
+		switch ($valid) {
+			case 'V2':
+			{
+				if ($postedData['transaction']['state'] === 4) {
+					wp_die('Status wait', 'Status wait', 200);
+				}
+				$orderId = $postedData['transaction']['order']['id'];
+				$order = new WC_Order($orderId);
+
+				if ($postedData['transaction']['state'] === 2) {
+					$order->update_status('completed', __('Payment Successfully.', 'payop-woocommerce'));
+					wp_die('Status success', 'Status success', 200);
+				} elseif ($postedData['transaction']['state'] === 3 || $postedData['transaction']['state'] === 5) {
+					if ($order->get_status() == 'completed') {
+						return;
 					}
-					do_action('payop-ipn-request', $postedData);
-				} else {
-					wp_die($valid, $valid, 400);
+
+					$error_message = isset($postedData['transaction']['error']['message']) ? $postedData['transaction']['error']['message'] : '';
+					$order->update_status('failed', __('Payment Failed.', 'payop-woocommerce') . $error_message . '.');
+					wp_die('Status fail', 'Status fail', 200);
 				}
 				break;
-			case 'success':
-				$orderId = $postedData['transaction']['order']['id'] ? $postedData['transaction']['order']['id'] : $postedData['orderId'];
+			}
 
+			case 'V1':
+			{
+				if ($postedData['status'] === 'wait') {
+					wp_die('Status wait', 'Status wait', 200);
+				}
+
+				$orderId = $postedData['orderId'];
 				$order = new WC_Order($orderId);
 
-				WC()->cart->empty_cart();
-
-				wp_redirect($this->get_return_url($order));
+				if ($postedData['status'] === 'success') {
+					$order->update_status('completed', __('Payment successfully paid', 'payop-woocommerce'));
+					wp_die('Status success', 'Status success', 200);
+				} elseif ($postedData['status'] === 'error') {
+					$order->update_status('failed', __('Payment not paid', 'payop-woocommerce'));
+					wp_die('Status fail', 'Status fail', 200);
+				}
 				break;
-			case 'fail':
-				$orderId = $postedData['transaction']['order']['id'] ? $postedData['transaction']['order']['id'] : $postedData['orderId'];
-				$order = new WC_Order($orderId);
-				wp_redirect($order->get_cancel_order_url_raw());
-				break;
-			default:
-				wp_die('Invalid request', 'Invalid request', 400);
+			}
 		}
+
+		return;
+
 	}
 
-	public function check_ipn_request_is_valid( $posted )
+	public function check_ipn_request_is_valid($posted)
 	{
 		$invoiceId = !empty($posted['invoice']['id']) ? $posted['invoice']['id'] : null;
 		$txId = !empty($posted['invoice']['txid']) ? $posted['invoice']['txid'] : null;
 		$orderId = !empty($posted['transaction']['order']['id']) ? $posted['transaction']['order']['id'] : null;
 		$signature = !empty($posted['signature']) ? $posted['signature'] : null;
+
 		// check IPN V1
 		if (!$invoiceId) {
 			if (!$signature) {
