@@ -5,7 +5,7 @@
 
 add_action('template_redirect', function () {
 
-    if (is_page('callback-ipn')) {
+    if (is_page('callback-ipn') || is_page('refund-ipn')) {
 
         $json = file_get_contents('php://input');
 
@@ -40,10 +40,5 @@ add_action('template_redirect', function () {
         exit;
     }
 
-    if (is_page('refund-ipn')) {
-        // TO DO
-        echo("Refund IPN");
-        exit;
-    }
 
 });

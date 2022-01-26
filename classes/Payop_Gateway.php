@@ -56,17 +56,21 @@ class Payop_Gateway extends WC_Payment_Gateway
 		// Method with all the options fields
 		$this->init_form_fields();
 
-//		add_action('woocommerce_receipt_' . Payop_Settings::NAME_GATEWAY, [$this, 'receipt_page'], 99, 1);
-//		add_action('woocommerce_receipt', [$this, 'receipt_page'], 99, 1);
-//		add_action('woocommerce_thankyou_'. Payop_Settings::NAME_GATEWAY, [$this, 'receipt_page'], 99, 1);
-		add_action('woocommerce_thankyou', [$this, 'receipt_page'], 99, 1);
 
-		add_filter('woocommerce_thankyou_order_received_text', [$this, 'order_complete'], 100, 2);
-
+        //Payment listner/API hook
+		add_action('woocommerce_api_wc_' . $this->id, [$this, 'listener_ipn']);
+		add_action('template_redirect', [$this, 'listener_ipn']);
 		// This action hook saves the settings
 		add_action('woocommerce_update_options_payment_gateways_' . $this->id, array($this, 'process_admin_options'));
 		add_action('woocommerce_checkout_update_order_meta', array($this, 'custom_payment_update_order_meta'));
 		add_action('admin_enqueue_scripts', array($this, 'payop_admin_scripts'));
+
+		add_action('woocommerce_thankyou', [$this, 'receipt_page'], 99, 1);
+		add_filter('woocommerce_thankyou_order_received_text', [$this, 'order_complete'], 99, 2);
+
+//		add_action('woocommerce_receipt_' . Payop_Settings::NAME_GATEWAY, [$this, 'receipt_page'], 99, 1);
+//		add_action('woocommerce_receipt', [$this, 'receipt_page'], 99, 1);
+//		add_action('woocommerce_thankyou_'. Payop_Settings::NAME_GATEWAY, [$this, 'receipt_page'], 99, 1);
 
 	}
 
@@ -210,13 +214,11 @@ class Payop_Gateway extends WC_Payment_Gateway
 	public function payment_fields()
 	{
 		?>
-
             <p style="margin: 20px 0;">
                 <label>
                     <img src="https://payop.com/assets/images/landing/logos/logo_color.svg" style="max-height:32px;"/>
                 </label>
             </p>
-
 		<?php
 
 		if ($this->paymentType == Payop_Settings::PAYMENT_TYPE_HOSTED_PAGE) {
@@ -357,4 +359,155 @@ class Payop_Gateway extends WC_Payment_Gateway
 	{
 
 	}
+
+	public function listener_ipn()
+	{
+		global $woocommerce;
+
+		if (!is_page('callback-ipn') || !is_page('refund-ipn'))
+		    return;
+
+		$requestType = !empty($_GET['payop']) ? $_GET['payop'] : '';
+
+		if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+			$postedData = json_decode(file_get_contents('php://input'), true);
+			if (!is_array($postedData)) {
+				$postedData = [];
+			}
+		} else {
+			$postedData = $_GET;
+		}
+
+		$f = fopen(__DIR__ . '/log.json', 'a');
+		fwrite($f, "[d/m/Y H:i:s]\t");
+		fwrite($f, json_encode($postedData));
+		fwrite($f, "\n");
+		fclose($f);
+
+		die;
+		switch ($requestType) {
+			case 'result':
+				@ob_clean();
+
+				$postedData = wp_unslash($postedData);
+				$valid = $this->check_ipn_request_is_valid($postedData);
+				if ($valid === 'V2'){
+					if ($postedData['transaction']['state'] === 4) {
+						wp_die('Status wait', 'Status wait', 200);
+					}
+					$orderId = $postedData['transaction']['order']['id'];
+					$order = new WC_Order($orderId);
+					if ($postedData['transaction']['state'] === 2) {
+						if ($this->auto_complete === 'yes') {
+							$order->update_status('completed', __('Payment successfully paid', 'payop-woocommerce'));
+						} else {
+							$order->update_status('processing', __('Payment successfully paid', 'payop-woocommerce'));
+						}
+						wp_die('Status success', 'Status success', 200);
+					} elseif ($postedData['transaction']['state'] === 3 or $postedData['transaction']['state'] === 5) {
+						$order->update_status('failed', __('Payment not paid', 'payop-woocommerce'));
+						wp_die('Status fail', 'Status fail', 200);
+					}
+					do_action('payop-ipn-request', $postedData);
+				} elseif ($valid = 'V1') {
+					if ($postedData['status'] === 'wait') {
+						wp_die('Status wait', 'Status wait', 200);
+					}
+					$orderId = $postedData['orderId'];
+					$order = new WC_Order($orderId);
+
+					if ($postedData['status'] === 'success') {
+						if ($this->auto_complete === 'yes') {
+							$order->update_status('completed', __('Payment successfully paid', 'payop-woocommerce'));
+						} else {
+							$order->update_status('processing', __('Payment successfully paid', 'payop-woocommerce'));
+						}
+						wp_die('Status success', 'Status success', 200);
+					} elseif ($postedData['status'] === 'error') {
+						$order->update_status('failed', __('Payment not paid', 'payop-woocommerce'));
+						wp_die('Status fail', 'Status fail', 200);
+					}
+					do_action('payop-ipn-request', $postedData);
+				} else {
+					wp_die($valid, $valid, 400);
+				}
+				break;
+			case 'success':
+				$orderId = $postedData['transaction']['order']['id'] ? $postedData['transaction']['order']['id'] : $postedData['orderId'];
+
+				$order = new WC_Order($orderId);
+
+				WC()->cart->empty_cart();
+
+				wp_redirect($this->get_return_url($order));
+				break;
+			case 'fail':
+				$orderId = $postedData['transaction']['order']['id'] ? $postedData['transaction']['order']['id'] : $postedData['orderId'];
+				$order = new WC_Order($orderId);
+				wp_redirect($order->get_cancel_order_url_raw());
+				break;
+			default:
+				wp_die('Invalid request', 'Invalid request', 400);
+		}
+	}
+
+	public function check_ipn_request_is_valid( $posted )
+	{
+		$invoiceId = !empty($posted['invoice']['id']) ? $posted['invoice']['id'] : null;
+		$txId = !empty($posted['invoice']['txid']) ? $posted['invoice']['txid'] : null;
+		$orderId = !empty($posted['transaction']['order']['id']) ? $posted['transaction']['order']['id'] : null;
+		$signature = !empty($posted['signature']) ? $posted['signature'] : null;
+		// check IPN V1
+		if (!$invoiceId) {
+			if (!$signature) {
+				return 'Empty invoice id';
+			} else {
+				$orderId = !empty($posted['orderId']) ? $posted['orderId'] : null;
+				if (!$orderId) {
+					return 'Empty order id V1';
+				}
+				$order = new WC_Order($orderId);
+				$currency = $order->get_currency();
+				$amount = number_format($order->get_total(), 4, '.', '');
+
+				$status = $posted['status'];
+
+				if ($status !== 'success' && $status !== 'error') {
+					return 'Status is not valid';
+				}
+
+				$o = ['id' => $orderId, 'amount' => $amount, 'currency' => $currency];
+
+				ksort($o, SORT_STRING);
+
+				$dataSet = array_values($o);
+
+				if ($status) {
+					array_push($dataSet, $status);
+				}
+
+				array_push($dataSet, $this->secret_key);
+
+				if ($posted['signature'] === hash('sha256', implode(':', $dataSet))) {
+					return 'V1';
+				}
+				return 'Invalid signature';
+			}
+		}
+		if (!$txId) {
+			return 'Empty transaction id';
+		}
+		if (!$orderId) {
+			return 'Empty order id V2';
+		}
+
+		$order = new WC_Order($orderId);
+		$currency = $order->get_currency();
+		$state = $posted['transaction']['state'];
+		if (!(1 <= $state && $state <= 5)) {
+			return 'State is not valid';
+		}
+		return 'V2';
+	}
+
 }
