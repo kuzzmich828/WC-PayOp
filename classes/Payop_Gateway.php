@@ -12,7 +12,6 @@ class Payop_Gateway extends WC_Payment_Gateway
 	private int $paymentMethod;
 	private array $paymentMultiMethods;
 	private int $paymentType;
-	private int $paymentPage;
 	private string $server = 'PROD';
 	private string $language = 'en';
 	private string $jwtToken;
@@ -45,7 +44,6 @@ class Payop_Gateway extends WC_Payment_Gateway
 		$this->secret_key = $this->get_option(Payop_Settings::NAME_GATEWAY . '_secret_key');
 		$this->paymentMethod = (int)$this->get_option(Payop_Settings::NAME_GATEWAY . '_paymentMethod');
 		$this->paymentType = (int)$this->get_option(Payop_Settings::NAME_GATEWAY . '_paymentType');
-		$this->paymentPage = (int)$this->get_option(Payop_Settings::NAME_GATEWAY . '_paymentPage');
 		$this->paymentMultiMethods = (array)$this->get_option(Payop_Settings::NAME_GATEWAY . '_paymentMultiMethods');
 		$this->server = $this->get_option(Payop_Settings::NAME_GATEWAY . '_server');
 		$this->language = $this->get_option(Payop_Settings::NAME_GATEWAY . '_language');
@@ -54,6 +52,7 @@ class Payop_Gateway extends WC_Payment_Gateway
 
 		if ($this->public_key)
 			$this->application = str_replace('application-', '', $this->public_key);
+
 		// Method with all the options fields
 		$this->init_form_fields();
 
@@ -67,10 +66,18 @@ class Payop_Gateway extends WC_Payment_Gateway
 		// This action hook saves the settings
 		add_action('woocommerce_update_options_payment_gateways_' . $this->id, array($this, 'process_admin_options'));
 		add_action('woocommerce_checkout_update_order_meta', array($this, 'custom_payment_update_order_meta'));
-		// We need custom JavaScript
-//		wp_enqueue_script('payop-script', plugin_dir_url(__DIR__) . '/assets/js/payop.js');
+		add_action('admin_enqueue_scripts', array($this, 'payop_admin_scripts'));
 
+	}
 
+	public function payop_admin_scripts()
+	{
+		wp_enqueue_script('admin_payop', plugin_dir_url(__DIR__) . 'assets/js/payop-admin.js', ['jquery']);
+	}
+
+	public static function getOption($option)
+	{
+		return WC_Payment_Gateways::instance()->get_available_payment_gateways()[Payop_Settings::NAME_GATEWAY]->get_option(Payop_Settings::NAME_GATEWAY . $option);
 	}
 
 	public function get_info_methods()
@@ -78,21 +85,10 @@ class Payop_Gateway extends WC_Payment_Gateway
 		return json_decode($this->info_methods, true);
 	}
 
-	public function get_resultUrl()
-	{
-		return $this->resultUrl;
-	}
-
 	public function get_server()
 	{
 		return $this->server;
 	}
-
-	public function get_failPath()
-	{
-		return $this->failPath;
-	}
-
 
 	/**
 	 * Plugin options, we deal with it in Step 3 too
@@ -101,19 +97,21 @@ class Payop_Gateway extends WC_Payment_Gateway
 	{
 
 		$aviablePayMethods = Payop_Settings::getAviableMethods(Payop_Settings::SERVERS_URL[$this->server], $this->application, $this->jwtToken);
+		$serverPaymentMethods = [];
+		$hostedPaymentMethods = [];
 
-		$aviableMethods = [];
 		$descMethods = __('Available payment methods for your application', 'wc-payop');
-		if (!is_array($aviablePayMethods)) {
-			$descMethods = __('Methods not aviable.', 'wc-payop') . '<br/>' . $aviableMethods;
+		if (!is_array($aviablePayMethods) || !$aviablePayMethods) {
+			$descMethods = '<span style="color:red;">' . __('No methods available or invalid "Public Key" ', 'wc-payop') . '</span>';
 		} else {
 			foreach ($aviablePayMethods as $aviablePayMethod) {
-				$aviableMethods [$aviablePayMethod['identifier']] = $aviablePayMethod['title'];
+				$hostedPaymentMethods [$aviablePayMethod['identifier']] = $aviablePayMethod['title'];
 			}
-			$paymentMultiMethods = $aviableMethods;
-			$aviableMethods[0] = __('All', 'wc-payop');
-			ksort($aviableMethods);
-			ksort($paymentMultiMethods);
+
+			$serverPaymentMethods = $hostedPaymentMethods;
+			$hostedPaymentMethods[0] = __('All', 'wc-payop');
+			ksort($hostedPaymentMethods);
+			ksort($serverPaymentMethods);
 		}
 
 		$wp_pages = get_posts(['post_type' => 'page', 'post_status' => 'publish']);
@@ -131,7 +129,6 @@ class Payop_Gateway extends WC_Payment_Gateway
 				'description' => '',
 				'default' => 'no',
 			),
-
 			Payop_Settings::ID_GATEWAY . '_title' => array(
 				'title' => 'Title',
 				'type' => 'text',
@@ -139,32 +136,27 @@ class Payop_Gateway extends WC_Payment_Gateway
 				'default' => 'PayOp',
 				'desc_tip' => true,
 			),
-
 			Payop_Settings::ID_GATEWAY . '_server' => array(
 				'title' => __('Server', 'wc-payop'),
 				'type' => 'select',
 				'options' => Payop_Settings::SERVERS_TYPE,
 			),
-
 			Payop_Settings::ID_GATEWAY . '_public_key' => array(
 				'title' => __('Public Key', 'wc-payop'),
 				'type' => 'text',
 			),
-
 			Payop_Settings::ID_GATEWAY . '_secret_key' => array(
 				'title' => __('Secret Key', 'wc-payop'),
 				'type' => 'text',
 			),
-
+			Payop_Settings::ID_GATEWAY . '_jwtToken' => array(
+				'title' => __('JWT Token', 'wc-payop'),
+				'type' => 'text',
+			),
 			Payop_Settings::ID_GATEWAY . '_paymentType' => array(
 				'title' => __('Payment Type', 'wc-payop'),
 				'type' => 'select',
 				'options' => Payop_Settings::PAYMENTS_TYPE,
-			),
-
-			Payop_Settings::ID_GATEWAY . '_jwtToken' => array(
-				'title' => __('JWT Token', 'wc-payop'),
-				'type' => 'text',
 			),
 
 			Payop_Settings::ID_GATEWAY . '_paymentMultiMethods' => array(
@@ -172,35 +164,24 @@ class Payop_Gateway extends WC_Payment_Gateway
 				'id' => 'paymentMultiMethods',
 				'description' => $descMethods,
 				'type' => 'multiselect',
-				'options' => $paymentMultiMethods,
+				'options' => $serverPaymentMethods,
 			),
-
 			Payop_Settings::ID_GATEWAY . '_paymentMethod' => array(
 				'title' => __('Payment Method', 'wc-payop'),
 				'id' => 'paymentMethod',
 				'description' => $descMethods,
 				'css' => 'mix-height: 100px;',
 				'type' => 'select',
-				'options' => $aviableMethods,
+				'options' => $hostedPaymentMethods,
 			),
-
-			Payop_Settings::ID_GATEWAY . '_paymentPage' => array(
-				'title' => __('Payment Page', 'wc-payop'),
-				'type' => 'select',
-				'options' => $pages,
-
-			),
-
 			Payop_Settings::ID_GATEWAY . '_resultUrl' => array(
 				'title' => __('Result URL', 'wc-payop'),
 				'type' => 'text',
 			),
-
 			Payop_Settings::ID_GATEWAY . '_failPath' => array(
 				'title' => __('Fail URL', 'wc-payop'),
 				'type' => 'text',
 			),
-
 			Payop_Settings::ID_GATEWAY . '_language' => array(
 				'title' => __('Language', 'wc-payop'),
 				'type' => 'text',
@@ -210,7 +191,6 @@ class Payop_Gateway extends WC_Payment_Gateway
 				'type' => 'hidden',
 				'default' => json_encode($aviablePayMethods),
 			),
-
 
 		);
 
@@ -229,15 +209,24 @@ class Payop_Gateway extends WC_Payment_Gateway
 	 */
 	public function payment_fields()
 	{
+		?>
 
-		if ($this->paymentType == Payop_Settings::PAYMENT_TYPE_HOSTED_PAGE)
-			return;
+            <p style="margin: 20px 0;">
+                <label>
+                    <img src="https://payop.com/assets/images/landing/logos/logo_color.svg" style="max-height:32px;"/>
+                </label>
+            </p>
+
+		<?php
+
+		if ($this->paymentType == Payop_Settings::PAYMENT_TYPE_HOSTED_PAGE) {
+			return true;
+		}
 
 		$avableMethods = Payop_Settings::getAviableMethods(Payop_Settings::SERVERS_URL[$this->server], $this->application, $this->jwtToken);
-
-		if (!is_array($avableMethods) && ($avableMethods))
-			return;
-
+		if (!is_array($avableMethods) && ($avableMethods)) {
+			return false;
+		}
 		$checked = 'checked';
 		foreach ($avableMethods as $method):
 			if (!in_array($method['identifier'], $this->paymentMultiMethods))
@@ -277,25 +266,25 @@ class Payop_Gateway extends WC_Payment_Gateway
 
 		$order = new WC_Order($order_id);
 		$payOrder = new Payop_Order($order_id);
-		$paymentMethod = $payOrder->getOrderPaymentMethod();
+		$paymentMethod = ($this->paymentType == Payop_Settings::PAYMENT_TYPE_HOSTED_PAGE) ? $this->paymentMethod : $payOrder->getOrderPaymentMethod();
 
 		$PayopHostedPage = new Payop_HostedPage($this->secret_key, $this->public_key . '', $this->server);
 
 		// create invoice by API PayOp
 		$invoice = $PayopHostedPage->createInvoice($order, $paymentMethod, $this->language, $this->resultUrl, $this->failPath);
 
-		if ((!$invoice || !isset($invoice->status) || $invoice->status != 1) && isset($invoice->message)) {
-			wc_add_notice(json_encode($invoice->message), 'error');
+		if ((!isset($invoice['status']) || $invoice['status'] != 1) && isset($invoice['message'])) {
+			wc_add_notice(json_encode($invoice['message']), 'error');
 			return false;
 		}
 
-		// Mark as on-hold (we're awaiting the cheque)
-		$order->update_status('pending-payment', __('Awaiting cheque payment', 'woocommerce'));
-
-		// Remove cart
-		$woocommerce->cart->empty_cart();
-
 		if (isset($invoice['data']) && $invoice['data'] && $invoice['status'] == 1) {
+
+			// Mark as on-hold (we're awaiting the cheque)
+			$order->update_status('pending-payment', __('Awaiting cheque payment', 'woocommerce'));
+			// Remove cart
+			$woocommerce->cart->empty_cart();
+
 			$order->add_meta_data('invoice', $invoice['data'], true);
 			$order->save_meta_data();
 			return array(
@@ -327,7 +316,6 @@ class Payop_Gateway extends WC_Payment_Gateway
 		}
 
 		$PayopHostedPage = new Payop_HostedPage($this->secret_key, $this->public_key, $this->server);
-
 		$invoice = $order->get_meta('invoice');
 
 		switch ($this->paymentType) {
@@ -336,7 +324,11 @@ class Payop_Gateway extends WC_Payment_Gateway
 			{
 
 				$payOrder = new Payop_Order($order_id);
-				$info_method_Order = $payOrder->info_method_Order();
+				$info_method_Order = $payOrder->info_method_Order($this);
+				if (!isset($info_method_Order['identifier'])) {
+					echo '<p style="color:red; font-weight: bold;">' . __('Payment method selection error', 'payop-woocommerce') . '</p>';
+					break;
+				}
 				$paymentMethod = $info_method_Order['identifier'];
 				$serverServer = new Payop_ServerToServer($this->server);
 
@@ -347,7 +339,6 @@ class Payop_Gateway extends WC_Payment_Gateway
 
 			case Payop_Settings::PAYMENT_TYPE_HOSTED_PAGE:
 			{
-
 				echo '<p>' . __('Thank you for your order, please click the button below to pay', 'payop-woocommerce') . '</p>';
 				echo '<form action="' . str_replace('{{locale}}', $this->language, $PayopHostedPage->getProcessingUrl()) . $invoice . '" method="GET" id="payop_payment_form" xmlns="http://www.w3.org/1999/html">' . "\n" .
 					'<input type="submit" class="button" id="submit_payop_payment_form" value="' . __('Pay', 'payop-woocommerce') . '">' . "\n" .
@@ -359,7 +350,6 @@ class Payop_Gateway extends WC_Payment_Gateway
 		}
 	}
 
-
 	/*
 	* In case you need a webhook, like PayPal IPN etc
 	*/
@@ -367,5 +357,4 @@ class Payop_Gateway extends WC_Payment_Gateway
 	{
 
 	}
-
 }

@@ -35,30 +35,26 @@ function wc_payop_init_gateway_class()
 	require_once(__DIR__ . '/classes/Payop_Gateway.php');
 }
 
-
-
 add_action('wp_enqueue_scripts', 'enqueue_card_scripts');
 function enqueue_card_scripts()
 {
-	if (is_order_received_page()  ) {
+	if (is_order_received_page()) {
 
 		$order = new Payop_Order(get_query_var('order-received'));
-		if ($order->is_card_method_Order()){
+		if ($order->is_card_method_Order()) {
 			wp_enqueue_script('imask-script', 'https://cdnjs.cloudflare.com/ajax/libs/imask/3.4.0/imask.min.js', ['jquery']);
 			wp_enqueue_script('seon-agent', 'https://cdn.seon.io/js/v4/agent.js', ['jquery']);
 			wp_enqueue_script('credit-card-script', plugin_dir_url(__FILE__) . 'assets/js/credit-card.js', ['jquery']);
 			wp_enqueue_style('credit-card-style', plugin_dir_url(__FILE__) . 'assets/css/credit-card.css', []);
 		}
 
-		$Payop_Gateway = new Payop_Gateway();
-
 		wp_enqueue_script('payop-script', plugin_dir_url(__FILE__) . 'assets/js/payop.js', ['jquery']);
 		wp_localize_script('jquery', 'payop_ajax',
 			array(
 				'url' => admin_url('admin-ajax.php'),
 				'check_invoice_status' => 'check_invoice_status',
-				'success_url' => $Payop_Gateway->get_resultUrl(),
-				'fail_url' => $Payop_Gateway->get_failPath(),
+				'success_url' => Payop_Gateway::getOption('_resultUrl'),
+				'fail_url' => Payop_Gateway::getOption('_failPath'),
 			)
 		);
 
@@ -90,10 +86,8 @@ function callback_payment_processing()
 		wp_die();
 	}
 
-
 	// ********** Get Server Option ***************
-	$payopGateway = new Payop_Gateway();
-	$server = $payopGateway->get_server();
+	$server = Payop_Gateway::getOption('_server');
 	$serverServer = new Payop_ServerToServer($server);
 
 	// ********** Get Order ***************
@@ -137,7 +131,7 @@ function callback_payment_processing()
 	}
 
 	/* Create checkoutTransaction */
-	$checkoutTransaction = $serverServer->createCheckoutTransaction($_POST['invoice'], $customer, $payopGateway->get_resultUrl(), false, false, $cardToken);
+	$checkoutTransaction = $serverServer->createCheckoutTransaction($_POST['invoice'], $customer, Payop_Gateway::getOption('_resultUrl'), false, false, $cardToken);
 
 	sleep(2);
 	/* Check status invoice after transaction */

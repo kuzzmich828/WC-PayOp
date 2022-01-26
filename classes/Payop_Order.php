@@ -29,8 +29,7 @@ class Payop_Order
 	public function is_card_method_Order(): bool
 	{
 		$orderMethod = $this->getOrderPaymentMethod();
-		$Payop_Gateway = new Payop_Gateway();
-		$gatewayMethods = $Payop_Gateway->get_info_methods();
+		$gatewayMethods = json_decode(Payop_Gateway::getOption('_info_methods'), true);
 		foreach ($gatewayMethods as $gatewayMethod) {
 			if ($orderMethod == $gatewayMethod['identifier']) {
 				if ($gatewayMethod['formType'] == 'cards') {
@@ -43,17 +42,17 @@ class Payop_Order
 		return false;
 	}
 
-	public function info_method_Order(): array
+	public function info_method_Order(Payop_Gateway $gateway): array
 	{
-		$orderMethod = $this->getOrderPaymentMethod();
-		$Payop_Gateway = new Payop_Gateway();
-		$gatewayMethods = $Payop_Gateway->get_info_methods();
-		foreach ($gatewayMethods as $gatewayMethod) {
-			if ($orderMethod == $gatewayMethod['identifier']) {
-				return $gatewayMethod;
+		$orderMethod = (int) $this->getOrderPaymentMethod();
+		$gatewayMethods = $gateway->get_info_methods();
+		if ($gatewayMethods && $orderMethod)
+			foreach ($gatewayMethods as $gatewayMethod) {
+				if ($orderMethod == $gatewayMethod['identifier']) {
+					return $gatewayMethod;
+				}
 			}
-		}
-		return false;
+		return $gatewayMethods;
 	}
 
 	public function updateStatusOrderAfterTransaction($invoiceStatus)

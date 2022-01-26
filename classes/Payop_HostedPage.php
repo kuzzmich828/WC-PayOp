@@ -28,6 +28,7 @@ class Payop_HostedPage extends Abstract_Payop_Helper
 
 	public function createInvoice($order, $paymentMethod = false, $language, $resultUrl, $failPath)
 	{
+		$paymentMethod = ($paymentMethod == 0) ? false : $paymentMethod;
 		$order_items_invoice = [];
 		$items = $order->get_items();
 
