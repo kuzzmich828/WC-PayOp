@@ -45,10 +45,11 @@ class Payop_Gateway extends WC_Payment_Gateway
 		$this->paymentMethod = (int)$this->get_option(Payop_Settings::NAME_GATEWAY . '_paymentMethod');
 		$this->paymentType = (int)$this->get_option(Payop_Settings::NAME_GATEWAY . '_paymentType');
 		$this->paymentMultiMethods = (array)$this->get_option(Payop_Settings::NAME_GATEWAY . '_paymentMultiMethods');
-		$this->server = $this->get_option(Payop_Settings::NAME_GATEWAY . '_server');
+		$this->server = $this->get_option(Payop_Settings::NAME_GATEWAY . '_server') ? $this->get_option(Payop_Settings::NAME_GATEWAY . '_server') : false;
 		$this->language = $this->get_option(Payop_Settings::NAME_GATEWAY . '_language');
 		$this->jwtToken = $this->get_option(Payop_Settings::NAME_GATEWAY . '_jwtToken');
 		$this->info_methods = $this->get_option(Payop_Settings::NAME_GATEWAY . '_info_methods');
+		$this->application = '';
 
 		if ($this->public_key)
 			$this->application = str_replace('application-', '', $this->public_key);
@@ -99,10 +100,11 @@ class Payop_Gateway extends WC_Payment_Gateway
 	 */
 	public function init_form_fields()
 	{
-
-		$aviablePayMethods = Payop_Settings::getAviableMethods(Payop_Settings::SERVERS_URL[$this->server], $this->application, $this->jwtToken);
+		$aviablePayMethods = [];
 		$serverPaymentMethods = [];
 		$hostedPaymentMethods = [];
+
+		$aviablePayMethods = Payop_Settings::getAviableMethods(Payop_Settings::SERVERS_URL[$this->server], $this->application, $this->jwtToken);
 
 		$descMethods = __('Available payment methods for your application', 'wc-payop');
 		if (!is_array($aviablePayMethods) || !$aviablePayMethods) {
@@ -162,16 +164,15 @@ class Payop_Gateway extends WC_Payment_Gateway
 				'type' => 'select',
 				'options' => Payop_Settings::PAYMENTS_TYPE,
 			),
-
 			Payop_Settings::ID_GATEWAY . '_paymentMultiMethods' => array(
-				'title' => __('Payment Methods', 'wc-payop'),
+				'title' => __('Payment Methods (Server-Server)', 'wc-payop'),
 				'id' => 'paymentMultiMethods',
 				'description' => $descMethods,
 				'type' => 'multiselect',
 				'options' => $serverPaymentMethods,
 			),
 			Payop_Settings::ID_GATEWAY . '_paymentMethod' => array(
-				'title' => __('Payment Method', 'wc-payop'),
+				'title' => __('Payment Method (Hosted Page)', 'wc-payop'),
 				'id' => 'paymentMethod',
 				'description' => $descMethods,
 				'css' => 'mix-height: 100px;',
@@ -363,8 +364,6 @@ class Payop_Gateway extends WC_Payment_Gateway
 	public function listener_ipn()
 	{
 
-		echo "<h1>IPN</h1>";
-
 		if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 			$postedData = json_decode(file_get_contents('php://input'), true);
 			if (!is_array($postedData)) {
@@ -374,11 +373,11 @@ class Payop_Gateway extends WC_Payment_Gateway
 			return;
 		}
 
-		$f = fopen(__DIR__ . '/log.json', 'a');
-		fwrite($f, "[" . date('d/m/Y H:i:s') . "]\t");
-		fwrite($f, json_encode($postedData));
-		fwrite($f, "\n");
-		fclose($f);
+//		$f = fopen(__DIR__ . '/log.json', 'a');
+//		fwrite($f, "[" . date('d/m/Y H:i:s') . "]\t");
+//		fwrite($f, json_encode($postedData));
+//		fwrite($f, "\n");
+//		fclose($f);
 
 		@ob_clean();
 
@@ -401,7 +400,6 @@ class Payop_Gateway extends WC_Payment_Gateway
 					if ($order->get_status() == 'completed') {
 						return;
 					}
-
 					$error_message = isset($postedData['transaction']['error']['message']) ? $postedData['transaction']['error']['message'] : '';
 					$order->update_status('failed', __('Payment Failed.', 'payop-woocommerce') . $error_message . '.');
 					wp_die('Status fail', 'Status fail', 200);
@@ -439,6 +437,7 @@ class Payop_Gateway extends WC_Payment_Gateway
 		$txId = !empty($posted['invoice']['txid']) ? $posted['invoice']['txid'] : null;
 		$orderId = !empty($posted['transaction']['order']['id']) ? $posted['transaction']['order']['id'] : null;
 		$signature = !empty($posted['signature']) ? $posted['signature'] : null;
+
 
 		// check IPN V1
 		if (!$invoiceId) {
@@ -484,12 +483,6 @@ class Payop_Gateway extends WC_Payment_Gateway
 			return 'Empty order id V2';
 		}
 
-		$order = new WC_Order($orderId);
-		$currency = $order->get_currency();
-		$state = $posted['transaction']['state'];
-		if (!(1 <= $state && $state <= 5)) {
-			return 'State is not valid';
-		}
 		return 'V2';
 	}
 

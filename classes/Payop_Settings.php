@@ -26,10 +26,14 @@ final class Payop_Settings extends Abstract_Payop_Helper
 
 	public static function getAviableMethods($server, $application, $jwtToken)
 	{
+
+		if (!$server || !$application || !$jwtToken)
+			return [];
+
 		$curl = curl_init();
 
 		curl_setopt_array($curl, array(
-			CURLOPT_URL => $server."v1/instrument-settings/payment-methods/available-for-application/$application",
+			CURLOPT_URL => $server . "v1/instrument-settings/payment-methods/available-for-application/$application",
 			CURLOPT_RETURNTRANSFER => true,
 			CURLOPT_ENCODING => "",
 			CURLOPT_MAXREDIRS => 10,
@@ -53,7 +57,7 @@ final class Payop_Settings extends Abstract_Payop_Helper
 		} else {
 			$response_obj = json_decode($response, true);
 			if (isset($response_obj['message']))
-				return (string) $response_obj['message'];
+				return (string)$response_obj['message'];
 
 			return $response_obj['data'];
 		}
