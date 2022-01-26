@@ -15,7 +15,7 @@ class Payop_Gateway extends WC_Payment_Gateway
 	private string $server = 'PROD';
 	private string $language = 'en';
 	private string $jwtToken;
-	private string $info_methods;
+	private array $info_methods;
 
 	/**
 	 * Class constructor, more about it in Step 3
@@ -48,7 +48,7 @@ class Payop_Gateway extends WC_Payment_Gateway
 		$this->server = $this->get_option(Payop_Settings::NAME_GATEWAY . '_server') ? $this->get_option(Payop_Settings::NAME_GATEWAY . '_server') : false;
 		$this->language = $this->get_option(Payop_Settings::NAME_GATEWAY . '_language');
 		$this->jwtToken = $this->get_option(Payop_Settings::NAME_GATEWAY . '_jwtToken');
-		$this->info_methods = $this->get_option(Payop_Settings::NAME_GATEWAY . '_info_methods');
+
 		$this->application = '';
 
 		if ($this->public_key)
@@ -57,6 +57,7 @@ class Payop_Gateway extends WC_Payment_Gateway
 		// Method with all the options fields
 		$this->init_form_fields();
 
+		$this->info_methods =  Payop_Settings::getAviableMethods(Payop_Settings::SERVERS_URL[$this->server], $this->application, $this->jwtToken);
 
 		//Payment listner/API hook
 		add_action('woocommerce_api_wc_' . $this->id, [$this, 'listener_ipn']);
@@ -85,14 +86,25 @@ class Payop_Gateway extends WC_Payment_Gateway
 		return WC_Payment_Gateways::instance()->get_available_payment_gateways()[Payop_Settings::NAME_GATEWAY]->get_option(Payop_Settings::NAME_GATEWAY . $option);
 	}
 
-	public function get_info_methods()
+	public function get_info_methods(): array
 	{
+		return $this->info_methods;
 		return json_decode($this->info_methods, true);
 	}
 
 	public function get_server()
 	{
 		return $this->server;
+	}
+
+	public function get_application()
+	{
+		return $this->application;
+	}
+
+	public function get_jwtToken()
+	{
+		return $this->jwtToken;
 	}
 
 	/**
@@ -191,11 +203,11 @@ class Payop_Gateway extends WC_Payment_Gateway
 				'title' => __('Language', 'wc-payop'),
 				'type' => 'text',
 			),
-			Payop_Settings::ID_GATEWAY . '_info_methods' => array(
-				'title' => __('All Types', 'wc-payop'),
-				'type' => 'hidden',
-				'default' => json_encode($aviablePayMethods),
-			),
+//			Payop_Settings::ID_GATEWAY . '_info_methods' => array(
+//				'title' => __('All Types', 'wc-payop'),
+//				'type' => 'textarea',
+//				'default' => json_encode($aviablePayMethods),
+//			),
 
 		);
 
@@ -328,6 +340,8 @@ class Payop_Gateway extends WC_Payment_Gateway
 
 				$payOrder = new Payop_Order($order_id);
 				$info_method_Order = $payOrder->info_method_Order($this);
+
+
 				if (!isset($info_method_Order['identifier'])) {
 					echo '<p style="color:red; font-weight: bold;">' . __('Payment method selection error', 'payop-woocommerce') . '</p>';
 					break;

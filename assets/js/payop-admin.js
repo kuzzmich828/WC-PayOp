@@ -1,6 +1,6 @@
 jQuery(document).ready(function () {
 
-    jQuery("#woocommerce_payop_payop_info_methods").parents('tr').hide();
+    // jQuery("#woocommerce_payop_payop_info_methods").parents('tr').hide();
 
     swichPaymentMethods();
 

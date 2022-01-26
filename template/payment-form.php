@@ -12,7 +12,7 @@
     <p class="payment-title" id="message-error" style="margin: 20px 0; display: none; color: red; font-weight: bold;"></p>
 
 <?php
-	if (!$serverServer->is_card_method($paymentMethod, json_decode($this->info_methods, true))) {
+	if (!$serverServer->is_card_method($paymentMethod,  $this->info_methods)) {
 		include_once __DIR__ . '/wallet-form.php';
 	} else {
 		include_once __DIR__ . '/card-form.php';

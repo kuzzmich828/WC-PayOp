@@ -29,7 +29,8 @@ class Payop_Order
 	public function is_card_method_Order(): bool
 	{
 		$orderMethod = $this->getOrderPaymentMethod();
-		$gatewayMethods = json_decode(Payop_Gateway::getOption('_info_methods'), true);
+		$gatewayMethods = Payop_Settings::getAviableMethods(Payop_Settings::SERVERS_URL[Payop_Gateway::getOption('_server')], str_replace('application-', '', Payop_Gateway::getOption('_public_key')), Payop_Gateway::getOption('_jwtToken'));
+
 		foreach ($gatewayMethods as $gatewayMethod) {
 			if ($orderMethod == $gatewayMethod['identifier']) {
 				if ($gatewayMethod['formType'] == 'cards') {
@@ -45,7 +46,7 @@ class Payop_Order
 	public function info_method_Order(Payop_Gateway $gateway): array
 	{
 		$orderMethod = (int) $this->getOrderPaymentMethod();
-		$gatewayMethods = $gateway->get_info_methods();
+		$gatewayMethods = Payop_Settings::getAviableMethods(Payop_Settings::SERVERS_URL[$gateway->get_server()], $gateway->get_application(), $gateway->get_jwtToken());
 		if ($gatewayMethods && $orderMethod)
 			foreach ($gatewayMethods as $gatewayMethod) {
 				if ($orderMethod == $gatewayMethod['identifier']) {
