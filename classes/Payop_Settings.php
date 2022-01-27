@@ -52,6 +52,7 @@ final class Payop_Settings extends Abstract_Payop_Helper
 		$err = curl_error($curl);
 		curl_close($curl);
 
+
 		if ($err) {
 			return 'Server Internal Error: ' . $err;
 		} else {

@@ -57,7 +57,21 @@ class Payop_Gateway extends WC_Payment_Gateway
 		// Method with all the options fields
 		$this->init_form_fields();
 
-		$this->info_methods =  Payop_Settings::getAviableMethods(Payop_Settings::SERVERS_URL[$this->server], $this->application, $this->jwtToken);
+		$info_methods = Payop_Settings::getAviableMethods(Payop_Settings::SERVERS_URL[$this->server], $this->application, $this->jwtToken);
+
+		if (is_array($info_methods)) {
+			$this->info_methods = Payop_Settings::getAviableMethods(Payop_Settings::SERVERS_URL[$this->server], $this->application, $this->jwtToken);
+		} else {
+			$this->info_methods = [];
+			add_action('admin_notices', function ($info_methods) {
+				?>
+                <div class="notice notice-success is-dismissible">
+                    <p>Error during loading aviable methods</p>
+                </div>
+				<?php
+			});
+		}
+
 
 		//Payment listner/API hook
 		add_action('woocommerce_api_wc_' . $this->id, [$this, 'listener_ipn']);
@@ -89,7 +103,6 @@ class Payop_Gateway extends WC_Payment_Gateway
 	public function get_info_methods(): array
 	{
 		return $this->info_methods;
-		return json_decode($this->info_methods, true);
 	}
 
 	public function get_server()
